@@ -16,12 +16,18 @@ Status: decisions finalized, implemented in `app/`.
 
 ## 2. Final decisions
 
-1. **Gender strategy — strict separation.** Every table that hangs off a
-   candidate is duplicated per gender: `male_candidates`/`female_candidates`,
-   `male_parents`/`female_parents`, `male_siblings`/`female_siblings`,
-   `male_references`/`female_references`. Each FK is single-parent and
-   non-nullable — no shared/dual-FK tables anywhere. A male and female
-   resume never touch the same row.
+1. **Gender strategy — split only at the candidate table.** `male_candidates`
+   and `female_candidates` remain separate tables (a male and female resume
+   never share a row) — but every table that hangs *off* a candidate is now
+   gender-unified: one `relatives` table, one `candidate_references` table.
+   This superseded the original "strict separation everywhere" decision.
+   The unified tables use a **dual nullable FK** — `male_candidate_id` and
+   `female_candidate_id`, both nullable, with a `CHECK` constraint enforcing
+   exactly one is set per row. This is the exact "Option A" that was floated
+   and rejected at the very first schema decision, back when only
+   `Candidates`/`Education` were gender-split — it turned out to be the
+   right call once the split proved to be more churn than value for the
+   satellite tables.
 2. **Education — flattened onto the candidate row, no separate table.**
    `male_candidates` has `talmud_torah`, `yeshiva_ketana`, `yeshiva_gedola`
    (each a nullable institution-name string); `female_candidates` has
@@ -31,12 +37,26 @@ Status: decisions finalized, implemented in `app/`.
    replaced an earlier `male_education`/`female_education` 1:N design;
    the tradeoff is a candidate can now only record one institution per
    stage (no history of e.g. two different yeshiva ketanas).
-3. **Parents cardinality — 1:1.** `male_parents.male_candidate_id` and
-   `female_parents.female_candidate_id` are `UNIQUE` FKs, one parents row per
-   candidate.
-4. **Timestamps** — `created_at` / `updated_at` on every table, via a shared
+3. **Parents + siblings merged into one `relatives` table — one row per
+   person.** The old `parents` table stored father *and* mother together in
+   a single row; `siblings` stored one row per sibling. Merging them meant
+   reshaping parents to match: a `relatives` row is now one person, with a
+   `relation` enum (`father` | `mother` | `sibling`) and a superset of
+   columns, most of them relevant to only one relation:
+   - `name` — always
+   - `maiden_name` — mother only
+   - `occupation` — father/mother only
+   - `dob`, `marital_status`, `details` — sibling only
+   A candidate's old single "parents" row is now up to 2 `relatives` rows
+   (father, mother). `relatives` uses the dual-FK strategy from #1.
+4. **References unified across gender.** `male_references`/
+   `female_references` merged into one `candidate_references` table (also
+   dual-FK). Named `candidate_references`, not `references` — `REFERENCES`
+   is a reserved SQL keyword and picking a name that needs quoting
+   everywhere wasn't worth it.
+5. **Timestamps** — `created_at` / `updated_at` on every table, via a shared
    `TimestampMixin` (`app/models/mixins.py`).
-5. **Pagination** — `GET /api/v1/shadchanim/{shadchan_id}/candidates` takes
+6. **Pagination** — `GET /api/v1/shadchanim/{shadchan_id}/candidates` takes
    `limit` (default 50, max 200) and `offset` (default 0) query params,
    applied independently to the male and female lists, with per-list totals
    in the response so a client can page each side separately.
@@ -48,13 +68,11 @@ erDiagram
     SHADCHANIM ||--o{ MALE_CANDIDATES : registers
     SHADCHANIM ||--o{ FEMALE_CANDIDATES : registers
 
-    MALE_CANDIDATES ||--o| MALE_PARENTS : has
-    MALE_CANDIDATES ||--o{ MALE_SIBLINGS : has
-    MALE_CANDIDATES ||--o{ MALE_REFERENCES : has
+    MALE_CANDIDATES ||--o{ RELATIVES : has
+    FEMALE_CANDIDATES ||--o{ RELATIVES : has
 
-    FEMALE_CANDIDATES ||--o| FEMALE_PARENTS : has
-    FEMALE_CANDIDATES ||--o{ FEMALE_SIBLINGS : has
-    FEMALE_CANDIDATES ||--o{ FEMALE_REFERENCES : has
+    MALE_CANDIDATES ||--o{ CANDIDATE_REFERENCES : has
+    FEMALE_CANDIDATES ||--o{ CANDIDATE_REFERENCES : has
 
     SHADCHANIM {
         int id PK
@@ -92,62 +110,24 @@ erDiagram
         datetime created_at
         datetime updated_at
     }
-    MALE_PARENTS {
+    RELATIVES {
         int id PK
-        int male_candidate_id FK "unique"
-        string father_name
-        string mother_name
-        string mother_maiden_name
-        string father_occupation
-        string mother_occupation
-        datetime created_at
-        datetime updated_at
-    }
-    FEMALE_PARENTS {
-        int id PK
-        int female_candidate_id FK "unique"
-        string father_name
-        string mother_name
-        string mother_maiden_name
-        string father_occupation
-        string mother_occupation
-        datetime created_at
-        datetime updated_at
-    }
-    MALE_SIBLINGS {
-        int id PK
-        int male_candidate_id FK
+        int male_candidate_id FK "nullable, dual-FK"
+        int female_candidate_id FK "nullable, dual-FK"
+        enum relation "father | mother | sibling"
         string name
-        date dob
-        string marital_status
-        string details
+        string maiden_name "mother only"
+        string occupation "father/mother only"
+        date dob "sibling only"
+        string marital_status "sibling only"
+        string details "sibling only"
         datetime created_at
         datetime updated_at
     }
-    FEMALE_SIBLINGS {
+    CANDIDATE_REFERENCES {
         int id PK
-        int female_candidate_id FK
-        string name
-        date dob
-        string marital_status
-        string details
-        datetime created_at
-        datetime updated_at
-    }
-    MALE_REFERENCES {
-        int id PK
-        int male_candidate_id FK
-        enum ref_type "rabbi_teacher | friend | family"
-        string name
-        string role_connection
-        string phone
-        string details
-        datetime created_at
-        datetime updated_at
-    }
-    FEMALE_REFERENCES {
-        int id PK
-        int female_candidate_id FK
+        int male_candidate_id FK "nullable, dual-FK"
+        int female_candidate_id FK "nullable, dual-FK"
         enum ref_type "rabbi_teacher | friend | family"
         string name
         string role_connection
@@ -157,6 +137,11 @@ erDiagram
         datetime updated_at
     }
 ```
+
+Both `RELATIVES` and `CANDIDATE_REFERENCES` carry a `CHECK` constraint —
+exactly one of `male_candidate_id` / `female_candidate_id` is non-null per
+row. Neither has a plain unnamed `references` table name; SQL reserves that
+word.
 
 `marital_status` on siblings is kept as a plain string, not an enum — the
 plan didn't specify its value set, so constraining it would be a guess.
@@ -171,23 +156,30 @@ app/
     database.py             # engine, SessionLocal, Base, get_db, init_db
   models/                 # SQLAlchemy ORM
     mixins.py               # TimestampMixin
-    enums.py                 # ReferenceType
+    enums.py                 # ReferenceType, RelationType
     shadchan.py
     candidate.py              # MaleCandidate, FemaleCandidate (incl. flattened education columns)
-    parent.py                 # MaleParents, FemaleParents
-    sibling.py                 # MaleSibling, FemaleSibling
-    reference.py               # MaleReference, FemaleReference
-  schemas/                # Pydantic response models
+    relative.py                # Relative (dual-FK, one row per father/mother/sibling)
+    reference.py               # CandidateReference (dual-FK)
+  schemas/                # Pydantic request/response models
     candidate.py
+    shadchan.py
   repositories/           # Query layer - owns eager-loading strategy
     candidate_repository.py
+    shadchan_repository.py
   services/               # Business logic between routers and repositories
     candidate_service.py
+    shadchan_service.py
   routers/
     shadchanim.py
 scripts/
   create_tables.py        # dev-only: Base.metadata.create_all()
+  seed_data.py             # dev-only: populate mock data for manual/API testing
 tests/
+  conftest.py              # in-memory SQLite per test, get_db override
+  test_shadchanim.py
+  test_candidates.py
+  test_candidate_repository.py  # eager-loading query-count regression test
 ```
 
 Routers depend on services, services depend on repositories, repositories
@@ -211,8 +203,8 @@ Create a candidate under a shadchan. Split by gender (rather than one route
 with a gender field) because the male/female bodies already diverge — the
 education columns differ, and this mirrors the underlying table split.
 404 if `shadchan_id` doesn't exist. 201 on success, returns the full
-`MaleCandidateRead`/`FemaleCandidateRead` shape (parents `null`, siblings/
-references `[]` on a fresh candidate).
+`MaleCandidateRead`/`FemaleCandidateRead` shape (`relatives`/`references`
+both `[]` on a fresh candidate — nothing else has been added yet).
 
 Body (male): `first_name`, `last_name`, `dob` required; `height`, `address`,
 `talmud_torah`, `yeshiva_ketana`, `yeshiva_gedola` optional.
@@ -242,8 +234,11 @@ Query params: `limit` (int, default 50, max 200), `offset` (int, default 0).
       "dob": "...", "height": 0, "address": "...",
       "created_at": "...", "updated_at": "...",
       "talmud_torah": "...", "yeshiva_ketana": "...", "yeshiva_gedola": "...",
-      "parents": { "father_name": "...", "mother_name": "..." },
-      "siblings": [ { "name": "...", "marital_status": "..." } ],
+      "relatives": [
+        { "relation": "father", "name": "...", "occupation": "..." },
+        { "relation": "mother", "name": "...", "maiden_name": "..." },
+        { "relation": "sibling", "name": "...", "marital_status": "..." }
+      ],
       "references": [ { "ref_type": "rabbi_teacher", "name": "..." } ]
     }
   ],
@@ -253,19 +248,22 @@ Query params: `limit` (int, default 50, max 200), `offset` (int, default 0).
 ```
 
 **Eager-loading strategy** (`app/repositories/candidate_repository.py`):
-`joinedload` for the 1:1 `parents` relationship (single JOIN, no row
-multiplication), `selectinload` for the 1:N `siblings`/`references`
-collections. Using `joinedload` on two simultaneous one-to-many collections
-would multiply the primary row by the product of each collection's size (a
+`selectinload` for both the `relatives` and `references` collections — both
+are 1:N now (parents lost its 1:1 special case when it merged into
+`relatives`), so there's no more `joinedload` in this codebase at all.
+Stacking `joinedload` on two simultaneous one-to-many collections would
+multiply the primary row by the product of each collection's size (a
 Cartesian join) — correct once deduplicated with `.unique()`, but wastes
-bandwidth on any candidate with more than a couple of siblings/references.
+bandwidth on any candidate with more than a couple of relatives/references.
 `selectinload` issues one extra `SELECT ... WHERE id IN (...)` per
 collection instead — still exactly O(1) queries per collection (not O(n)
 per candidate), so N+1 is avoided either way; this just avoids the
-multiplication too. Education needs no eager-loading strategy at all now —
-it's plain columns on the candidate row, included for free. Male and female
-results are two separate queries (two separate tables), merged in the
-service layer.
+multiplication too — pinned by
+`tests/test_candidate_repository.py` (asserts exactly 3 queries: candidates
++ relatives + references, regardless of row count). Education needs no
+eager-loading strategy at all — it's plain columns on the candidate row,
+included for free. Male and female results are two separate queries (two
+separate tables), merged in the service layer.
 
 ## 6. Remaining follow-ups (not blocking, not decided here)
 

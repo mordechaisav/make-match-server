@@ -3,11 +3,10 @@ import datetime
 from sqlalchemy import event
 
 from app.models.candidate import MaleCandidate
-from app.models.enums import ReferenceType
-from app.models.parent import MaleParents
-from app.models.reference import MaleReference
+from app.models.enums import ReferenceType, RelationType
+from app.models.reference import CandidateReference
+from app.models.relative import Relative
 from app.models.shadchan import Shadchan
-from app.models.sibling import MaleSibling
 from app.repositories import candidate_repository
 
 
@@ -26,12 +25,17 @@ def _seed_male_candidates_with_relations(db_session, count, siblings_per_candida
         db_session.add(candidate)
         db_session.flush()
 
-        db_session.add(MaleParents(male_candidate_id=candidate.id, father_name="David"))
+        db_session.add(Relative(male_candidate_id=candidate.id, relation=RelationType.FATHER, name="David"))
+        db_session.add(Relative(male_candidate_id=candidate.id, relation=RelationType.MOTHER, name="Sara"))
         for j in range(siblings_per_candidate):
-            db_session.add(MaleSibling(male_candidate_id=candidate.id, name=f"Sib{j}"))
+            db_session.add(
+                Relative(male_candidate_id=candidate.id, relation=RelationType.SIBLING, name=f"Sib{j}")
+            )
         for j in range(references_per_candidate):
             db_session.add(
-                MaleReference(male_candidate_id=candidate.id, ref_type=ReferenceType.FRIEND, name=f"Ref{j}")
+                CandidateReference(
+                    male_candidate_id=candidate.id, ref_type=ReferenceType.FRIEND, name=f"Ref{j}"
+                )
             )
 
     db_session.commit()
@@ -61,11 +65,14 @@ def test_get_male_candidates_query_count_is_constant_regardless_of_row_count(db_
 
     assert len(candidates) == 5
     for candidate in candidates:
-        assert candidate.parents is not None
-        assert len(candidate.siblings) == 3
+        # 1 father + 1 mother + 3 siblings, all in the unified relatives list
+        assert len(candidate.relatives) == 5
+        assert {r.relation for r in candidate.relatives} == {
+            RelationType.FATHER, RelationType.MOTHER, RelationType.SIBLING
+        }
         assert len(candidate.references) == 3
 
-    # 1 candidates+parents (joinedload) + 1 selectinload(siblings) + 1 selectinload(references)
+    # 1 candidates query + 1 selectinload(relatives) + 1 selectinload(references)
     # must not grow with candidate count or nested-row count
     assert len(queries) == 3
 

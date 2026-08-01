@@ -29,8 +29,7 @@ def test_create_male_candidate_returns_full_shape(client, shadchan_id):
     assert body["talmud_torah"] == "TT Lakewood"
     assert body["yeshiva_ketana"] == "Yeshiva Ketana X"
     assert body["yeshiva_gedola"] is None
-    assert body["parents"] is None
-    assert body["siblings"] == []
+    assert body["relatives"] == []
     assert body["references"] == []
 
 

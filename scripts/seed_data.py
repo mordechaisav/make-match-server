@@ -8,18 +8,16 @@ import datetime
 
 from app.core.database import SessionLocal
 from app.models.candidate import FemaleCandidate, MaleCandidate
-from app.models.enums import ReferenceType
-from app.models.parent import FemaleParents, MaleParents
-from app.models.reference import FemaleReference, MaleReference
+from app.models.enums import ReferenceType, RelationType
+from app.models.reference import CandidateReference
+from app.models.relative import Relative
 from app.models.shadchan import Shadchan
-from app.models.sibling import FemaleSibling, MaleSibling
 
 
 def clear(db):
     for model in (
-        MaleReference, FemaleReference,
-        MaleSibling, FemaleSibling,
-        MaleParents, FemaleParents,
+        CandidateReference,
+        Relative,
         MaleCandidate, FemaleCandidate,
         Shadchan,
     ):
@@ -67,31 +65,39 @@ def seed(db):
     db.flush()
 
     db.add_all([
-        MaleParents(male_candidate_id=yosef.id, father_name="David Levi", mother_name="Sara Levi",
-                    father_occupation="Rosh Kollel"),
-        MaleParents(male_candidate_id=dovid.id, father_name="Aharon Weiss", mother_name="Rochel Weiss",
-                    mother_maiden_name="Stern"),
-        MaleParents(male_candidate_id=mendel.id, father_name="Yitzchok Braun", mother_name="Miriam Braun"),
-        FemaleParents(female_candidate_id=rivka.id, father_name="Moshe Klein", mother_name="Leah Klein",
-                      father_occupation="Sofer"),
-        FemaleParents(female_candidate_id=chaya.id, father_name="Shimon Friedman", mother_name="Esther Friedman",
-                      mother_maiden_name="Roth"),
+        Relative(male_candidate_id=yosef.id, relation=RelationType.FATHER, name="David Levi",
+                 occupation="Rosh Kollel"),
+        Relative(male_candidate_id=yosef.id, relation=RelationType.MOTHER, name="Sara Levi"),
+        Relative(male_candidate_id=yosef.id, relation=RelationType.SIBLING, name="Chaim Levi",
+                 marital_status="married"),
+        Relative(male_candidate_id=yosef.id, relation=RelationType.SIBLING, name="Berel Levi",
+                 marital_status="single"),
+
+        Relative(male_candidate_id=dovid.id, relation=RelationType.FATHER, name="Aharon Weiss"),
+        Relative(male_candidate_id=dovid.id, relation=RelationType.MOTHER, name="Rochel Weiss",
+                 maiden_name="Stern"),
+
+        Relative(male_candidate_id=mendel.id, relation=RelationType.FATHER, name="Yitzchok Braun"),
+        Relative(male_candidate_id=mendel.id, relation=RelationType.MOTHER, name="Miriam Braun"),
+
+        Relative(female_candidate_id=rivka.id, relation=RelationType.FATHER, name="Moshe Klein",
+                 occupation="Sofer"),
+        Relative(female_candidate_id=rivka.id, relation=RelationType.MOTHER, name="Leah Klein"),
+        Relative(female_candidate_id=rivka.id, relation=RelationType.SIBLING, name="Sury Klein",
+                 marital_status="married", details="Married to a talmid in Mir"),
+
+        Relative(female_candidate_id=chaya.id, relation=RelationType.FATHER, name="Shimon Friedman"),
+        Relative(female_candidate_id=chaya.id, relation=RelationType.MOTHER, name="Esther Friedman",
+                 maiden_name="Roth"),
     ])
 
     db.add_all([
-        MaleSibling(male_candidate_id=yosef.id, name="Chaim Levi", marital_status="married"),
-        MaleSibling(male_candidate_id=yosef.id, name="Berel Levi", marital_status="single"),
-        FemaleSibling(female_candidate_id=rivka.id, name="Sury Klein", marital_status="married",
-                      details="Married to a talmid in Mir"),
-    ])
-
-    db.add_all([
-        MaleReference(male_candidate_id=yosef.id, ref_type=ReferenceType.RABBI_TEACHER, name="Rav Katz",
-                      role_connection="Rebbi in Ponevezh", phone="03-555-0101"),
-        MaleReference(male_candidate_id=dovid.id, ref_type=ReferenceType.FRIEND, name="Shloime Adler",
-                      role_connection="Chavrusa"),
-        FemaleReference(female_candidate_id=rivka.id, ref_type=ReferenceType.FAMILY, name="Tante Bracha",
-                        role_connection="Aunt", phone="02-555-0202"),
+        CandidateReference(male_candidate_id=yosef.id, ref_type=ReferenceType.RABBI_TEACHER, name="Rav Katz",
+                            role_connection="Rebbi in Ponevezh", phone="03-555-0101"),
+        CandidateReference(male_candidate_id=dovid.id, ref_type=ReferenceType.FRIEND, name="Shloime Adler",
+                            role_connection="Chavrusa"),
+        CandidateReference(female_candidate_id=rivka.id, ref_type=ReferenceType.FAMILY, name="Tante Bracha",
+                            role_connection="Aunt", phone="02-555-0202"),
     ])
 
     db.commit()

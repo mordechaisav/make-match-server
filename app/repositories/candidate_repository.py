@@ -1,5 +1,5 @@
 from sqlalchemy import func, select
-from sqlalchemy.orm import Session, joinedload, selectinload
+from sqlalchemy.orm import Session, selectinload
 
 from app.models.candidate import FemaleCandidate, MaleCandidate
 from app.schemas.candidate import (
@@ -12,16 +12,14 @@ from app.schemas.candidate import (
 
 def _male_candidate_stmt():
     return select(MaleCandidate).options(
-        joinedload(MaleCandidate.parents),
-        selectinload(MaleCandidate.siblings),
+        selectinload(MaleCandidate.relatives),
         selectinload(MaleCandidate.references),
     )
 
 
 def _female_candidate_stmt():
     return select(FemaleCandidate).options(
-        joinedload(FemaleCandidate.parents),
-        selectinload(FemaleCandidate.siblings),
+        selectinload(FemaleCandidate.relatives),
         selectinload(FemaleCandidate.references),
     )
 

@@ -2,24 +2,17 @@ from datetime import date, datetime
 
 from pydantic import BaseModel, ConfigDict
 
-from app.models.enums import ReferenceType
+from app.models.enums import ReferenceType, RelationType
 
 
-class ParentsRead(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    father_name: str | None
-    mother_name: str | None
-    mother_maiden_name: str | None
-    father_occupation: str | None
-    mother_occupation: str | None
-
-
-class SiblingRead(BaseModel):
+class RelativeRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
+    relation: RelationType
     name: str
+    maiden_name: str | None
+    occupation: str | None
     dob: date | None
     marital_status: str | None
     details: str | None
@@ -95,8 +88,7 @@ class MaleCandidateRead(BaseModel):
     talmud_torah: str | None
     yeshiva_ketana: str | None
     yeshiva_gedola: str | None
-    parents: ParentsRead | None
-    siblings: list[SiblingRead]
+    relatives: list[RelativeRead]
     references: list[ReferenceRead]
 
 
@@ -115,8 +107,7 @@ class FemaleCandidateRead(BaseModel):
     beit_yaakov: str | None
     seminar: str | None
     maslul: str | None
-    parents: ParentsRead | None
-    siblings: list[SiblingRead]
+    relatives: list[RelativeRead]
     references: list[ReferenceRead]
 
 

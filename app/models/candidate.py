@@ -23,14 +23,11 @@ class MaleCandidate(Base, TimestampMixin):
     yeshiva_gedola: Mapped[str | None] = mapped_column(String(200), nullable=True)
 
     shadchan: Mapped["Shadchan"] = relationship(back_populates="male_candidates")
-    parents: Mapped["MaleParents | None"] = relationship(
-        back_populates="candidate", uselist=False, cascade="all, delete-orphan"
+    relatives: Mapped[list["Relative"]] = relationship(
+        back_populates="male_candidate", cascade="all, delete-orphan"
     )
-    siblings: Mapped[list["MaleSibling"]] = relationship(
-        back_populates="candidate", cascade="all, delete-orphan"
-    )
-    references: Mapped[list["MaleReference"]] = relationship(
-        back_populates="candidate", cascade="all, delete-orphan"
+    references: Mapped[list["CandidateReference"]] = relationship(
+        back_populates="male_candidate", cascade="all, delete-orphan"
     )
 
 
@@ -50,12 +47,9 @@ class FemaleCandidate(Base, TimestampMixin):
     maslul: Mapped[str | None] = mapped_column(String(200), nullable=True)
 
     shadchan: Mapped["Shadchan"] = relationship(back_populates="female_candidates")
-    parents: Mapped["FemaleParents | None"] = relationship(
-        back_populates="candidate", uselist=False, cascade="all, delete-orphan"
+    relatives: Mapped[list["Relative"]] = relationship(
+        back_populates="female_candidate", cascade="all, delete-orphan"
     )
-    siblings: Mapped[list["FemaleSibling"]] = relationship(
-        back_populates="candidate", cascade="all, delete-orphan"
-    )
-    references: Mapped[list["FemaleReference"]] = relationship(
-        back_populates="candidate", cascade="all, delete-orphan"
+    references: Mapped[list["CandidateReference"]] = relationship(
+        back_populates="female_candidate", cascade="all, delete-orphan"
     )
