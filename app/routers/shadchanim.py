@@ -1,0 +1,64 @@
+from fastapi import APIRouter, Depends, Query, status
+from sqlalchemy.orm import Session
+
+from app.core.database import get_db
+from app.schemas.candidate import (
+    FemaleCandidateCreate,
+    FemaleCandidateRead,
+    FemaleCandidateUpdate,
+    MaleCandidateCreate,
+    MaleCandidateRead,
+    MaleCandidateUpdate,
+    ShadchanCandidatesRead,
+)
+from app.schemas.shadchan import ShadchanCreate, ShadchanRead
+from app.services import candidate_service, shadchan_service
+
+router = APIRouter(prefix="/api/v1/shadchanim", tags=["shadchanim"])
+
+
+@router.post("", response_model=ShadchanRead, status_code=status.HTTP_201_CREATED)
+def register_shadchan(payload: ShadchanCreate, db: Session = Depends(get_db)) -> ShadchanRead:
+    return shadchan_service.register_shadchan(db, payload)
+
+
+@router.get("/{shadchan_id}/candidates", response_model=ShadchanCandidatesRead)
+def get_candidates(
+    shadchan_id: int,
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+    db: Session = Depends(get_db),
+) -> ShadchanCandidatesRead:
+    return candidate_service.get_shadchan_candidates(db, shadchan_id, limit, offset)
+
+
+@router.post(
+    "/{shadchan_id}/male-candidates", response_model=MaleCandidateRead, status_code=status.HTTP_201_CREATED
+)
+def create_male_candidate(
+    shadchan_id: int, payload: MaleCandidateCreate, db: Session = Depends(get_db)
+) -> MaleCandidateRead:
+    return candidate_service.create_male_candidate(db, shadchan_id, payload)
+
+
+@router.post(
+    "/{shadchan_id}/female-candidates", response_model=FemaleCandidateRead, status_code=status.HTTP_201_CREATED
+)
+def create_female_candidate(
+    shadchan_id: int, payload: FemaleCandidateCreate, db: Session = Depends(get_db)
+) -> FemaleCandidateRead:
+    return candidate_service.create_female_candidate(db, shadchan_id, payload)
+
+
+@router.patch("/{shadchan_id}/male-candidates/{candidate_id}", response_model=MaleCandidateRead)
+def update_male_candidate(
+    shadchan_id: int, candidate_id: int, payload: MaleCandidateUpdate, db: Session = Depends(get_db)
+) -> MaleCandidateRead:
+    return candidate_service.update_male_candidate(db, shadchan_id, candidate_id, payload)
+
+
+@router.patch("/{shadchan_id}/female-candidates/{candidate_id}", response_model=FemaleCandidateRead)
+def update_female_candidate(
+    shadchan_id: int, candidate_id: int, payload: FemaleCandidateUpdate, db: Session = Depends(get_db)
+) -> FemaleCandidateRead:
+    return candidate_service.update_female_candidate(db, shadchan_id, candidate_id, payload)
