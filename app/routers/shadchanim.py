@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.schemas.candidate import (
+    CandidateFilters,
     FemaleCandidateCreate,
     FemaleCandidateRead,
     FemaleCandidateUpdate,
@@ -27,9 +28,10 @@ def get_candidates(
     shadchan_id: int,
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
+    filters: CandidateFilters = Depends(),
     db: Session = Depends(get_db),
 ) -> ShadchanCandidatesRead:
-    return candidate_service.get_shadchan_candidates(db, shadchan_id, limit, offset)
+    return candidate_service.get_shadchan_candidates(db, shadchan_id, limit, offset, filters)
 
 
 @router.post(

@@ -1,8 +1,23 @@
 from datetime import date, datetime
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.models.enums import ReferenceType, RelationType
+
+
+class CandidateFilters(BaseModel):
+    """Optional search filters shared by male and female candidate listing.
+
+    Every field defaults to None (no filter). Add new filters here as
+    additional optional fields - the repository only applies the ones
+    that are set.
+    """
+
+    age_min: int | None = Field(default=None, ge=0, le=150)
+    age_max: int | None = Field(default=None, ge=0, le=150)
+    height_min: int | None = Field(default=None, ge=0)
+    height_max: int | None = Field(default=None, ge=0)
+    address: str | None = None
 
 
 class RelativeRead(BaseModel):

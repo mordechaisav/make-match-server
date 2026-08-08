@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from app.models.shadchan import Shadchan
 from app.repositories import candidate_repository
 from app.schemas.candidate import (
+    CandidateFilters,
     FemaleCandidateCreate,
     FemaleCandidateRead,
     FemaleCandidateUpdate,
@@ -22,13 +23,15 @@ def _get_shadchan_or_404(db: Session, shadchan_id: int) -> Shadchan:
     return shadchan
 
 
-def get_shadchan_candidates(db: Session, shadchan_id: int, limit: int, offset: int) -> ShadchanCandidatesRead:
+def get_shadchan_candidates(
+    db: Session, shadchan_id: int, limit: int, offset: int, filters: CandidateFilters | None = None
+) -> ShadchanCandidatesRead:
     _get_shadchan_or_404(db, shadchan_id)
 
-    male_candidates = candidate_repository.get_male_candidates(db, shadchan_id, limit, offset)
-    female_candidates = candidate_repository.get_female_candidates(db, shadchan_id, limit, offset)
-    male_total = candidate_repository.count_male_candidates(db, shadchan_id)
-    female_total = candidate_repository.count_female_candidates(db, shadchan_id)
+    male_candidates = candidate_repository.get_male_candidates(db, shadchan_id, limit, offset, filters)
+    female_candidates = candidate_repository.get_female_candidates(db, shadchan_id, limit, offset, filters)
+    male_total = candidate_repository.count_male_candidates(db, shadchan_id, filters)
+    female_total = candidate_repository.count_female_candidates(db, shadchan_id, filters)
 
     return ShadchanCandidatesRead(
         shadchan_id=shadchan_id,
