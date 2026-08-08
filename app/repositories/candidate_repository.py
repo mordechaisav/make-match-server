@@ -4,6 +4,8 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.models.candidate import FemaleCandidate, MaleCandidate
+from app.models.reference import CandidateReference
+from app.models.relative import Relative
 from app.schemas.candidate import (
     CandidateFilters,
     FemaleCandidateCreate,
@@ -91,14 +93,20 @@ def get_female_candidate(db: Session, shadchan_id: int, candidate_id: int) -> Fe
 
 
 def create_male_candidate(db: Session, shadchan_id: int, data: MaleCandidateCreate) -> MaleCandidate:
-    candidate = MaleCandidate(shadchan_id=shadchan_id, **data.model_dump())
+    payload = data.model_dump(exclude={"relatives", "references"})
+    candidate = MaleCandidate(shadchan_id=shadchan_id, **payload)
+    candidate.relatives = [Relative(**r.model_dump()) for r in data.relatives]
+    candidate.references = [CandidateReference(**r.model_dump()) for r in data.references]
     db.add(candidate)
     db.commit()
     return get_male_candidate(db, shadchan_id, candidate.id)
 
 
 def create_female_candidate(db: Session, shadchan_id: int, data: FemaleCandidateCreate) -> FemaleCandidate:
-    candidate = FemaleCandidate(shadchan_id=shadchan_id, **data.model_dump())
+    payload = data.model_dump(exclude={"relatives", "references"})
+    candidate = FemaleCandidate(shadchan_id=shadchan_id, **payload)
+    candidate.relatives = [Relative(**r.model_dump()) for r in data.relatives]
+    candidate.references = [CandidateReference(**r.model_dump()) for r in data.references]
     db.add(candidate)
     db.commit()
     return get_female_candidate(db, shadchan_id, candidate.id)

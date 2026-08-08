@@ -44,6 +44,24 @@ class ReferenceRead(BaseModel):
     details: str | None
 
 
+class RelativeCreate(BaseModel):
+    relation: RelationType
+    name: str
+    maiden_name: str | None = None
+    occupation: str | None = None
+    dob: date | None = None
+    marital_status: str | None = None
+    details: str | None = None
+
+
+class ReferenceCreate(BaseModel):
+    ref_type: ReferenceType
+    name: str
+    role_connection: str | None = None
+    phone: str | None = None
+    details: str | None = None
+
+
 class MaleCandidateCreate(BaseModel):
     first_name: str
     last_name: str
@@ -54,6 +72,8 @@ class MaleCandidateCreate(BaseModel):
     talmud_torah: str | None = None
     yeshiva_ketana: str | None = None
     yeshiva_gedola: str | None = None
+    relatives: list[RelativeCreate] = Field(default_factory=list)
+    references: list[ReferenceCreate] = Field(default_factory=list)
 
 
 class MaleCandidateUpdate(BaseModel):
@@ -78,6 +98,8 @@ class FemaleCandidateCreate(BaseModel):
     beit_yaakov: str | None = None
     seminar: str | None = None
     maslul: str | None = None
+    relatives: list[RelativeCreate] = Field(default_factory=list)
+    references: list[ReferenceCreate] = Field(default_factory=list)
 
 
 class FemaleCandidateUpdate(BaseModel):

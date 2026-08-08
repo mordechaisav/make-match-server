@@ -94,6 +94,48 @@ def test_create_female_candidate_unknown_shadchan_is_403(client, shadchan_id):
     assert resp.status_code == 403
 
 
+# ---- relatives & references ----
+
+
+def test_create_male_candidate_with_relatives_and_references(client, shadchan_id):
+    body = {
+        **MALE_BODY,
+        "relatives": [
+            {"relation": "father", "name": "Yitzchak", "occupation": "Avreich"},
+            {"relation": "mother", "name": "Rivka", "maiden_name": "Mandinger", "occupation": "Teacher"},
+            {"relation": "sibling", "name": "Dina", "dob": "2001-01-01", "marital_status": "married"},
+        ],
+        "references": [
+            {"ref_type": "rabbi_teacher", "name": "R. Halman", "role_connection": "Rav biyeshiva", "phone": "0555555555"},
+            {"ref_type": "friend", "name": "Moshe Cohen", "phone": "0555552555"},
+        ],
+    }
+
+    resp = client.post(f"/api/v1/shadchanim/{shadchan_id}/male-candidates", json=body)
+
+    assert resp.status_code == 201
+    created = resp.json()
+    assert len(created["relatives"]) == 3
+    assert {r["relation"] for r in created["relatives"]} == {"father", "mother", "sibling"}
+    mother = next(r for r in created["relatives"] if r["relation"] == "mother")
+    assert mother["maiden_name"] == "Mandinger"
+    assert len(created["references"]) == 2
+    assert {r["ref_type"] for r in created["references"]} == {"rabbi_teacher", "friend"}
+
+    # persisted, not just echoed back - refetch via the list endpoint
+    listed = client.get(f"/api/v1/shadchanim/{shadchan_id}/candidates").json()
+    assert len(listed["male_candidates"][0]["relatives"]) == 3
+
+
+def test_create_female_candidate_omitting_relatives_and_references_defaults_to_empty(client, shadchan_id):
+    resp = client.post(f"/api/v1/shadchanim/{shadchan_id}/female-candidates", json=FEMALE_BODY)
+
+    assert resp.status_code == 201
+    body = resp.json()
+    assert body["relatives"] == []
+    assert body["references"] == []
+
+
 # ---- update ----
 
 

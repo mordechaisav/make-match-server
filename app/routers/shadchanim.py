@@ -1,3 +1,5 @@
+from typing import Callable
+
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
 
@@ -13,8 +15,9 @@ from app.schemas.candidate import (
     MaleCandidateUpdate,
     ShadchanCandidatesRead,
 )
+from app.schemas.pdf_extraction import FemaleCandidateDraft, MaleCandidateDraft, PdfRowsIn
 from app.schemas.shadchan import ShadchanCreate, ShadchanRead
-from app.services import candidate_service, shadchan_service
+from app.services import candidate_service, pdf_extraction_service, shadchan_service
 
 router = APIRouter(prefix="/api/v1/shadchanim", tags=["shadchanim"])
 
@@ -54,6 +57,26 @@ def create_female_candidate(
     shadchan_id: int, payload: FemaleCandidateCreate, db: Session = Depends(get_db), _=Depends(require_own_shadchan)
 ) -> FemaleCandidateRead:
     return candidate_service.create_female_candidate(db, shadchan_id, payload)
+
+
+@router.post("/{shadchan_id}/male-candidates/extract", response_model=MaleCandidateDraft)
+def extract_male_candidate(
+    shadchan_id: int,
+    payload: PdfRowsIn,
+    _=Depends(require_own_shadchan),
+    extract: Callable[[dict], MaleCandidateDraft] = Depends(pdf_extraction_service.get_male_extractor),
+) -> MaleCandidateDraft:
+    return extract(payload.rows)
+
+
+@router.post("/{shadchan_id}/female-candidates/extract", response_model=FemaleCandidateDraft)
+def extract_female_candidate(
+    shadchan_id: int,
+    payload: PdfRowsIn,
+    _=Depends(require_own_shadchan),
+    extract: Callable[[dict], FemaleCandidateDraft] = Depends(pdf_extraction_service.get_female_extractor),
+) -> FemaleCandidateDraft:
+    return extract(payload.rows)
 
 
 @router.patch("/{shadchan_id}/male-candidates/{candidate_id}", response_model=MaleCandidateRead)
