@@ -17,6 +17,7 @@ class MaleCandidate(Base, TimestampMixin):
     dob: Mapped[date] = mapped_column(Date, nullable=False)
     height: Mapped[int | None] = mapped_column(Integer, nullable=True)
     address: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    picture_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
     talmud_torah: Mapped[str | None] = mapped_column(String(200), nullable=True)
     yeshiva_ketana: Mapped[str | None] = mapped_column(String(200), nullable=True)
@@ -41,6 +42,7 @@ class FemaleCandidate(Base, TimestampMixin):
     dob: Mapped[date] = mapped_column(Date, nullable=False)
     height: Mapped[int | None] = mapped_column(Integer, nullable=True)
     address: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    picture_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
     beit_yaakov: Mapped[str | None] = mapped_column(String(200), nullable=True)
     seminar: Mapped[str | None] = mapped_column(String(200), nullable=True)

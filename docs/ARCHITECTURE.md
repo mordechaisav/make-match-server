@@ -90,6 +90,7 @@ erDiagram
         date dob
         int height
         string address
+        string picture_url "nullable"
         string talmud_torah "institution name, nullable"
         string yeshiva_ketana "institution name, nullable"
         string yeshiva_gedola "institution name, nullable"
@@ -104,6 +105,7 @@ erDiagram
         date dob
         int height
         string address
+        string picture_url "nullable"
         string beit_yaakov "institution name, nullable"
         string seminar "institution name, nullable"
         string maslul "institution name, nullable"
@@ -207,9 +209,9 @@ education columns differ, and this mirrors the underlying table split.
 both `[]` on a fresh candidate — nothing else has been added yet).
 
 Body (male): `first_name`, `last_name`, `dob` required; `height`, `address`,
-`talmud_torah`, `yeshiva_ketana`, `yeshiva_gedola` optional.
+`picture_url`, `talmud_torah`, `yeshiva_ketana`, `yeshiva_gedola` optional.
 Body (female): same required fields; optional `height`, `address`,
-`beit_yaakov`, `seminar`, `maslul`.
+`picture_url`, `beit_yaakov`, `seminar`, `maslul`.
 
 ### PATCH /api/v1/shadchanim/{shadchan_id}/male-candidates/{candidate_id}
 ### PATCH /api/v1/shadchanim/{shadchan_id}/female-candidates/{candidate_id}

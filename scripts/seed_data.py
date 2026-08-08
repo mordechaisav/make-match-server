@@ -34,6 +34,7 @@ def seed(db):
     yosef = MaleCandidate(
         shadchan_id=cohen.id, first_name="Yosef", last_name="Levi",
         dob=datetime.date(1998, 1, 12), height=175, address="Bnei Brak",
+        picture_url="https://example.com/photos/yosef.jpg",
         talmud_torah="Talmud Torah Chasdei Torah", yeshiva_ketana="Chevron",
         yeshiva_gedola="Ponevezh",
     )
@@ -53,6 +54,7 @@ def seed(db):
     rivka = FemaleCandidate(
         shadchan_id=cohen.id, first_name="Rivka", last_name="Klein",
         dob=datetime.date(1999, 5, 5), height=163, address="Jerusalem",
+        picture_url="https://example.com/photos/rivka.jpg",
         beit_yaakov="Beis Yaakov Yerushalayim", seminar="Bais Yaakov Seminary",
     )
     chaya = FemaleCandidate(

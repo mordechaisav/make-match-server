@@ -35,6 +35,7 @@ class MaleCandidateCreate(BaseModel):
     dob: date
     height: int | None = None
     address: str | None = None
+    picture_url: str | None = None
     talmud_torah: str | None = None
     yeshiva_ketana: str | None = None
     yeshiva_gedola: str | None = None
@@ -46,6 +47,7 @@ class MaleCandidateUpdate(BaseModel):
     dob: date | None = None
     height: int | None = None
     address: str | None = None
+    picture_url: str | None = None
     talmud_torah: str | None = None
     yeshiva_ketana: str | None = None
     yeshiva_gedola: str | None = None
@@ -57,6 +59,7 @@ class FemaleCandidateCreate(BaseModel):
     dob: date
     height: int | None = None
     address: str | None = None
+    picture_url: str | None = None
     beit_yaakov: str | None = None
     seminar: str | None = None
     maslul: str | None = None
@@ -68,6 +71,7 @@ class FemaleCandidateUpdate(BaseModel):
     dob: date | None = None
     height: int | None = None
     address: str | None = None
+    picture_url: str | None = None
     beit_yaakov: str | None = None
     seminar: str | None = None
     maslul: str | None = None
@@ -83,6 +87,7 @@ class MaleCandidateRead(BaseModel):
     dob: date
     height: int | None
     address: str | None
+    picture_url: str | None
     created_at: datetime
     updated_at: datetime
     talmud_torah: str | None
@@ -102,6 +107,7 @@ class FemaleCandidateRead(BaseModel):
     dob: date
     height: int | None
     address: str | None
+    picture_url: str | None
     created_at: datetime
     updated_at: datetime
     beit_yaakov: str | None
