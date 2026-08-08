@@ -1,3 +1,14 @@
+from datetime import date
+
+
+def _dob_for_age(age: int) -> str:
+    today = date.today()
+    try:
+        return today.replace(year=today.year - age).isoformat()
+    except ValueError:
+        return today.replace(month=2, day=28, year=today.year - age).isoformat()
+
+
 MALE_BODY = {
     "first_name": "Aryeh",
     "last_name": "Stein",
@@ -192,3 +203,74 @@ def test_get_candidates_pagination_applies_per_gender_list(client, shadchan_id):
     body = resp.json()
     assert len(body["male_candidates"]) == 1
     assert body["pagination"]["male_total"] == 3
+
+
+# ---- filters ----
+
+
+def _create_male(client, shadchan_id, **overrides):
+    body = {"first_name": "M", "last_name": "Test", "dob": "2000-01-01", **overrides}
+    resp = client.post(f"/api/v1/shadchanim/{shadchan_id}/male-candidates", json=body)
+    assert resp.status_code == 201
+    return resp.json()
+
+
+def test_get_candidates_filters_by_age_range(client, shadchan_id):
+    _create_male(client, shadchan_id, first_name="Young", dob=_dob_for_age(20))
+    _create_male(client, shadchan_id, first_name="Mid", dob=_dob_for_age(28))
+    _create_male(client, shadchan_id, first_name="Old", dob=_dob_for_age(40))
+
+    resp = client.get(f"/api/v1/shadchanim/{shadchan_id}/candidates?age_min=25&age_max=35")
+
+    assert resp.status_code == 200
+    names = {c["first_name"] for c in resp.json()["male_candidates"]}
+    assert names == {"Mid"}
+    assert resp.json()["pagination"]["male_total"] == 1
+
+
+def test_get_candidates_filters_by_height_range(client, shadchan_id):
+    _create_male(client, shadchan_id, first_name="Short", height=160)
+    _create_male(client, shadchan_id, first_name="Tall", height=190)
+
+    resp = client.get(f"/api/v1/shadchanim/{shadchan_id}/candidates?height_min=180")
+
+    body = resp.json()
+    assert resp.status_code == 200
+    assert [c["first_name"] for c in body["male_candidates"]] == ["Tall"]
+    assert body["pagination"]["male_total"] == 1
+
+
+def test_get_candidates_filters_by_address_substring_case_insensitive(client, shadchan_id):
+    _create_male(client, shadchan_id, first_name="Local", address="Lakewood, NJ")
+    _create_male(client, shadchan_id, first_name="Away", address="Monsey, NY")
+
+    resp = client.get(f"/api/v1/shadchanim/{shadchan_id}/candidates?address=lakewood")
+
+    body = resp.json()
+    assert resp.status_code == 200
+    assert [c["first_name"] for c in body["male_candidates"]] == ["Local"]
+    assert body["pagination"]["male_total"] == 1
+
+
+def test_get_candidates_combined_filters_apply_together(client, shadchan_id):
+    _create_male(client, shadchan_id, first_name="Match", dob=_dob_for_age(28), height=185, address="Lakewood")
+    _create_male(client, shadchan_id, first_name="WrongHeight", dob=_dob_for_age(28), height=160, address="Lakewood")
+    _create_male(client, shadchan_id, first_name="WrongAddress", dob=_dob_for_age(28), height=185, address="Monsey")
+
+    resp = client.get(
+        f"/api/v1/shadchanim/{shadchan_id}/candidates?age_min=25&age_max=35&height_min=180&address=lakewood"
+    )
+
+    body = resp.json()
+    assert resp.status_code == 200
+    assert [c["first_name"] for c in body["male_candidates"]] == ["Match"]
+
+
+def test_get_candidates_no_filters_returns_everyone(client, shadchan_id):
+    _create_male(client, shadchan_id, first_name="A")
+    _create_male(client, shadchan_id, first_name="B")
+
+    resp = client.get(f"/api/v1/shadchanim/{shadchan_id}/candidates")
+
+    assert resp.status_code == 200
+    assert len(resp.json()["male_candidates"]) == 2
