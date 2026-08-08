@@ -12,6 +12,7 @@ class Shadchan(Base, TimestampMixin):
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     phone: Mapped[str] = mapped_column(String(50), nullable=False)
     email: Mapped[str] = mapped_column(String(200), nullable=False)
+    firebase_uid: Mapped[str | None] = mapped_column(String(128), unique=True, nullable=True)
 
     male_candidates: Mapped[list["MaleCandidate"]] = relationship(back_populates="shadchan")
     female_candidates: Mapped[list["FemaleCandidate"]] = relationship(back_populates="shadchan")

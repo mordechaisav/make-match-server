@@ -269,7 +269,7 @@ separate tables), merged in the service layer.
 
 ## 6. Remaining follow-ups (not blocking, not decided here)
 
-- [ ] Auth/authorization on the shadchanim endpoints (none implemented).
+- [x] Auth/authorization on the shadchanim endpoints — see §8.
 - [ ] `marital_status` value set, if the product wants it constrained later.
 
 ## 7. Local Postgres (docker-compose)
@@ -282,3 +282,27 @@ Migrations: `alembic upgrade head` (applies `alembic/versions/`). To generate
 a new migration after changing models: `alembic revision --autogenerate -m "..."`,
 then review the generated file before applying — autogenerate doesn't catch
 everything (e.g. some column renames show up as drop+add).
+
+## 8. Auth — Firebase ID tokens
+
+The client app (outside this repo) handles Firebase sign-in and sends
+`Authorization: Bearer <ID token>` on every request. This backend never
+issues or stores passwords; it only verifies tokens with the Firebase Admin
+SDK (`app/core/firebase.py`, credentials path from
+`FIREBASE_CREDENTIALS_PATH`).
+
+`app/core/auth.py` has three dependencies, layered:
+- `verify_firebase_token` — verifies the token, 401 if missing/invalid/expired.
+- `get_current_shadchan` — looks up the `Shadchan` row by the token's `uid`
+  (via `firebase_uid`), `None` if this Firebase account never registered one.
+- `require_own_shadchan` — 403 unless the resolved shadchan's `id` matches
+  the `shadchan_id` path param. Used on every `/shadchanim/{shadchan_id}/...`
+  route so a logged-in shadchan can only ever touch their own candidates.
+
+**Registration** (`POST /api/v1/shadchanim`) requires a valid token too —
+`firebase_uid` is taken from the verified token server-side, never from the
+request body, so a client can't register a profile under someone else's
+identity. A second registration attempt with the same `firebase_uid` is a
+409. `firebase_uid` is nullable + unique on `shadchanim` (nullable so the
+unique constraint doesn't block — Postgres treats NULLs as distinct — but
+every row created through the API always has one set).
