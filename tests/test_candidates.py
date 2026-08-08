@@ -81,17 +81,17 @@ def test_create_candidate_missing_required_field_is_422(client, shadchan_id):
     assert resp.status_code == 422
 
 
-def test_create_male_candidate_unknown_shadchan_is_404(client):
+def test_create_male_candidate_unknown_shadchan_is_403(client, shadchan_id):
+    # authenticated shadchan (shadchan_id) has no claim over this unrelated id
     resp = client.post("/api/v1/shadchanim/999999/male-candidates", json=MALE_BODY)
 
-    assert resp.status_code == 404
-    assert resp.json()["detail"] == "Shadchan not found"
+    assert resp.status_code == 403
 
 
-def test_create_female_candidate_unknown_shadchan_is_404(client):
+def test_create_female_candidate_unknown_shadchan_is_403(client, shadchan_id):
     resp = client.post("/api/v1/shadchanim/999999/female-candidates", json=FEMALE_BODY)
 
-    assert resp.status_code == 404
+    assert resp.status_code == 403
 
 
 # ---- update ----
@@ -131,15 +131,14 @@ def test_update_female_candidate_changes_only_sent_fields(client, shadchan_id):
     assert body["beit_yaakov"] is None
 
 
-def test_update_candidate_unknown_shadchan_is_404(client, shadchan_id):
+def test_update_candidate_unknown_shadchan_is_403(client, shadchan_id):
     created = client.post(f"/api/v1/shadchanim/{shadchan_id}/male-candidates", json=MALE_BODY).json()
 
     resp = client.patch(
         f"/api/v1/shadchanim/999999/male-candidates/{created['id']}", json={"height": 190}
     )
 
-    assert resp.status_code == 404
-    assert resp.json()["detail"] == "Shadchan not found"
+    assert resp.status_code == 403
 
 
 def test_update_candidate_nonexistent_candidate_is_404(client, shadchan_id):
@@ -152,11 +151,15 @@ def test_update_candidate_nonexistent_candidate_is_404(client, shadchan_id):
 
 
 def test_update_candidate_wrong_shadchan_scope_is_404(client, shadchan_id):
+    created = client.post(f"/api/v1/shadchanim/{shadchan_id}/male-candidates", json=MALE_BODY).json()
+
+    # a second, distinct authenticated shadchan - legitimately allowed to hit ITS OWN
+    # shadchan_id (passes the ownership check), but the candidate belongs to shadchan_id, not this one
+    client.auth_uid["uid"] = "other-firebase-uid"
     other_shadchan_id = client.post(
         "/api/v1/shadchanim",
         json={"name": "R. Other", "phone": "050-222-3333", "email": "other@shadchanim.example"},
     ).json()["id"]
-    created = client.post(f"/api/v1/shadchanim/{shadchan_id}/male-candidates", json=MALE_BODY).json()
 
     # candidate exists, but not under other_shadchan_id -> must 404, not leak across shadchanim
     resp = client.patch(
@@ -184,10 +187,10 @@ def test_get_candidates_lists_created_candidates(client, shadchan_id):
     assert body["pagination"] == {"limit": 50, "offset": 0, "male_total": 1, "female_total": 1}
 
 
-def test_get_candidates_unknown_shadchan_is_404(client):
+def test_get_candidates_unknown_shadchan_is_403(client):
     resp = client.get("/api/v1/shadchanim/999999/candidates")
 
-    assert resp.status_code == 404
+    assert resp.status_code == 403
 
 
 def test_get_candidates_pagination_applies_per_gender_list(client, shadchan_id):
