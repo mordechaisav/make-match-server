@@ -17,7 +17,14 @@ class Settings(BaseSettings):
     b2_upload_url_expires_in: int = 300
     b2_read_url_expires_in: int = 3600
 
+    # comma-separated list of allowed browser origins for CORS (local client dev servers, etc.)
+    cors_origins: str = "http://localhost:5500,http://127.0.0.1:5500"
+
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+
+    @property
+    def cors_origins_list(self) -> list[str]:
+        return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
 
 
 settings = Settings()
