@@ -15,9 +15,10 @@ from app.schemas.candidate import (
     MaleCandidateUpdate,
     ShadchanCandidatesRead,
 )
+from app.schemas.image import UploadUrlIn, UploadUrlOut
 from app.schemas.pdf_extraction import FemaleCandidateDraft, MaleCandidateDraft, PdfRowsIn
 from app.schemas.shadchan import ShadchanCreate, ShadchanRead
-from app.services import candidate_service, pdf_extraction_service, shadchan_service
+from app.services import candidate_service, image_service, pdf_extraction_service, shadchan_service
 
 router = APIRouter(prefix="/api/v1/shadchanim", tags=["shadchanim"])
 
@@ -37,26 +38,47 @@ def get_candidates(
     filters: CandidateFilters = Depends(),
     db: Session = Depends(get_db),
     _=Depends(require_own_shadchan),
+    read_url_fn: Callable[[str], str] = Depends(image_service.get_read_url_generator),
 ) -> ShadchanCandidatesRead:
-    return candidate_service.get_shadchan_candidates(db, shadchan_id, limit, offset, filters)
+    return candidate_service.get_shadchan_candidates(db, shadchan_id, limit, offset, read_url_fn, filters)
+
+
+@router.post("/{shadchan_id}/upload-url", response_model=UploadUrlOut)
+def create_upload_url(
+    shadchan_id: int,
+    payload: UploadUrlIn,
+    _=Depends(require_own_shadchan),
+    generate: Callable[[int, str], UploadUrlOut] = Depends(image_service.get_upload_url_generator),
+) -> UploadUrlOut:
+    return generate(shadchan_id, payload.content_type)
 
 
 @router.post(
     "/{shadchan_id}/male-candidates", response_model=MaleCandidateRead, status_code=status.HTTP_201_CREATED
 )
 def create_male_candidate(
-    shadchan_id: int, payload: MaleCandidateCreate, db: Session = Depends(get_db), _=Depends(require_own_shadchan)
+    shadchan_id: int,
+    payload: MaleCandidateCreate,
+    db: Session = Depends(get_db),
+    _=Depends(require_own_shadchan),
+    exists_checker: Callable[[str], bool] = Depends(image_service.get_object_checker),
+    read_url_fn: Callable[[str], str] = Depends(image_service.get_read_url_generator),
 ) -> MaleCandidateRead:
-    return candidate_service.create_male_candidate(db, shadchan_id, payload)
+    return candidate_service.create_male_candidate(db, shadchan_id, payload, exists_checker, read_url_fn)
 
 
 @router.post(
     "/{shadchan_id}/female-candidates", response_model=FemaleCandidateRead, status_code=status.HTTP_201_CREATED
 )
 def create_female_candidate(
-    shadchan_id: int, payload: FemaleCandidateCreate, db: Session = Depends(get_db), _=Depends(require_own_shadchan)
+    shadchan_id: int,
+    payload: FemaleCandidateCreate,
+    db: Session = Depends(get_db),
+    _=Depends(require_own_shadchan),
+    exists_checker: Callable[[str], bool] = Depends(image_service.get_object_checker),
+    read_url_fn: Callable[[str], str] = Depends(image_service.get_read_url_generator),
 ) -> FemaleCandidateRead:
-    return candidate_service.create_female_candidate(db, shadchan_id, payload)
+    return candidate_service.create_female_candidate(db, shadchan_id, payload, exists_checker, read_url_fn)
 
 
 @router.post("/{shadchan_id}/male-candidates/extract", response_model=MaleCandidateDraft)
@@ -86,8 +108,12 @@ def update_male_candidate(
     payload: MaleCandidateUpdate,
     db: Session = Depends(get_db),
     _=Depends(require_own_shadchan),
+    exists_checker: Callable[[str], bool] = Depends(image_service.get_object_checker),
+    read_url_fn: Callable[[str], str] = Depends(image_service.get_read_url_generator),
 ) -> MaleCandidateRead:
-    return candidate_service.update_male_candidate(db, shadchan_id, candidate_id, payload)
+    return candidate_service.update_male_candidate(
+        db, shadchan_id, candidate_id, payload, exists_checker, read_url_fn
+    )
 
 
 @router.patch("/{shadchan_id}/female-candidates/{candidate_id}", response_model=FemaleCandidateRead)
@@ -97,5 +123,9 @@ def update_female_candidate(
     payload: FemaleCandidateUpdate,
     db: Session = Depends(get_db),
     _=Depends(require_own_shadchan),
+    exists_checker: Callable[[str], bool] = Depends(image_service.get_object_checker),
+    read_url_fn: Callable[[str], str] = Depends(image_service.get_read_url_generator),
 ) -> FemaleCandidateRead:
-    return candidate_service.update_female_candidate(db, shadchan_id, candidate_id, payload)
+    return candidate_service.update_female_candidate(
+        db, shadchan_id, candidate_id, payload, exists_checker, read_url_fn
+    )
