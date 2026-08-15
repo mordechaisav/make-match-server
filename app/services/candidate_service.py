@@ -70,6 +70,26 @@ def get_shadchan_candidates(
     )
 
 
+def get_male_candidate(
+    db: Session, shadchan_id: int, candidate_id: int, read_url_fn: Callable[[str], str]
+) -> MaleCandidateRead:
+    _get_shadchan_or_404(db, shadchan_id)
+    candidate = candidate_repository.get_male_candidate(db, shadchan_id, candidate_id)
+    if candidate is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Male candidate not found")
+    return _resolve_picture(MaleCandidateRead.model_validate(candidate), read_url_fn)
+
+
+def get_female_candidate(
+    db: Session, shadchan_id: int, candidate_id: int, read_url_fn: Callable[[str], str]
+) -> FemaleCandidateRead:
+    _get_shadchan_or_404(db, shadchan_id)
+    candidate = candidate_repository.get_female_candidate(db, shadchan_id, candidate_id)
+    if candidate is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Female candidate not found")
+    return _resolve_picture(FemaleCandidateRead.model_validate(candidate), read_url_fn)
+
+
 def create_male_candidate(
     db: Session,
     shadchan_id: int,

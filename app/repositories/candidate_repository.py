@@ -1,6 +1,6 @@
 from datetime import date
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.models.candidate import FemaleCandidate, MaleCandidate
@@ -43,6 +43,11 @@ def _apply_candidate_filters(stmt, model, filters: CandidateFilters | None):
         stmt = stmt.where(model.height <= filters.height_max)
     if filters.address:
         stmt = stmt.where(model.address.ilike(f"%{_escape_like(filters.address)}%", escape="\\"))
+    if filters.name:
+        pattern = f"%{_escape_like(filters.name)}%"
+        stmt = stmt.where(
+            or_(model.first_name.ilike(pattern, escape="\\"), model.last_name.ilike(pattern, escape="\\"))
+        )
     return stmt
 
 

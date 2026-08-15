@@ -20,6 +20,10 @@ class Settings(BaseSettings):
     # comma-separated list of allowed browser origins for CORS (local client dev servers, etc.)
     cors_origins: str = "http://localhost:5500,http://127.0.0.1:5500"
 
+    # public base URL of this deployment, used for the OpenAPI "servers" block so
+    # generated clients don't default to localhost. Leave unset for local dev.
+    public_api_url: str | None = None
+
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     @property

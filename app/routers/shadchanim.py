@@ -1,10 +1,11 @@
 from typing import Callable
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
-from app.core.auth import require_own_shadchan, verify_firebase_token
+from app.core.auth import get_current_shadchan, require_own_shadchan, verify_firebase_token
 from app.core.database import get_db
+from app.models.shadchan import Shadchan
 from app.schemas.candidate import (
     CandidateFilters,
     FemaleCandidateCreate,
@@ -17,7 +18,7 @@ from app.schemas.candidate import (
 )
 from app.schemas.image import UploadUrlIn, UploadUrlOut
 from app.schemas.pdf_extraction import FemaleCandidateDraft, MaleCandidateDraft, PdfRowsIn
-from app.schemas.shadchan import ShadchanCreate, ShadchanRead
+from app.schemas.shadchan import ShadchanCreate, ShadchanRead, ShadchanUpdate
 from app.services import candidate_service, image_service, pdf_extraction_service, shadchan_service
 
 router = APIRouter(prefix="/api/v1/shadchanim", tags=["shadchanim"])
@@ -28,6 +29,23 @@ def register_shadchan(
     payload: ShadchanCreate, db: Session = Depends(get_db), decoded: dict = Depends(verify_firebase_token)
 ) -> ShadchanRead:
     return shadchan_service.register_shadchan(db, payload, decoded["uid"])
+
+
+@router.get("/me", response_model=ShadchanRead)
+def get_my_shadchan(current: Shadchan | None = Depends(get_current_shadchan)) -> ShadchanRead:
+    if current is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "No shadchan registered for this account")
+    return ShadchanRead.model_validate(current)
+
+
+@router.patch("/{shadchan_id}", response_model=ShadchanRead)
+def update_shadchan(
+    shadchan_id: int,
+    payload: ShadchanUpdate,
+    db: Session = Depends(get_db),
+    current: Shadchan = Depends(require_own_shadchan),
+) -> ShadchanRead:
+    return shadchan_service.update_shadchan(db, current, payload)
 
 
 @router.get("/{shadchan_id}/candidates", response_model=ShadchanCandidatesRead)
@@ -41,6 +59,28 @@ def get_candidates(
     read_url_fn: Callable[[str], str] = Depends(image_service.get_read_url_generator),
 ) -> ShadchanCandidatesRead:
     return candidate_service.get_shadchan_candidates(db, shadchan_id, limit, offset, read_url_fn, filters)
+
+
+@router.get("/{shadchan_id}/male-candidates/{candidate_id}", response_model=MaleCandidateRead)
+def get_male_candidate(
+    shadchan_id: int,
+    candidate_id: int,
+    db: Session = Depends(get_db),
+    _=Depends(require_own_shadchan),
+    read_url_fn: Callable[[str], str] = Depends(image_service.get_read_url_generator),
+) -> MaleCandidateRead:
+    return candidate_service.get_male_candidate(db, shadchan_id, candidate_id, read_url_fn)
+
+
+@router.get("/{shadchan_id}/female-candidates/{candidate_id}", response_model=FemaleCandidateRead)
+def get_female_candidate(
+    shadchan_id: int,
+    candidate_id: int,
+    db: Session = Depends(get_db),
+    _=Depends(require_own_shadchan),
+    read_url_fn: Callable[[str], str] = Depends(image_service.get_read_url_generator),
+) -> FemaleCandidateRead:
+    return candidate_service.get_female_candidate(db, shadchan_id, candidate_id, read_url_fn)
 
 
 @router.post("/{shadchan_id}/upload-url", response_model=UploadUrlOut)

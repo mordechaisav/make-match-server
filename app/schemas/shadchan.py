@@ -9,6 +9,12 @@ class ShadchanCreate(BaseModel):
     email: str
 
 
+class ShadchanUpdate(BaseModel):
+    name: str | None = None
+    phone: str | None = None
+    email: str | None = None
+
+
 class ShadchanRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

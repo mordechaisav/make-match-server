@@ -18,6 +18,7 @@ class CandidateFilters(BaseModel):
     height_min: int | None = Field(default=None, ge=0)
     height_max: int | None = Field(default=None, ge=0)
     address: str | None = None
+    name: str | None = None
 
 
 class RelativeRead(BaseModel):

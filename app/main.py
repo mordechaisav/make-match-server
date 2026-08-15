@@ -5,7 +5,10 @@ from app import models  # noqa: F401  (registers all mappers before requests are
 from app.core.config import settings
 from app.routers import shadchanim
 
-app = FastAPI(title="Shadchan Server")
+app = FastAPI(
+    title="Shadchan Server",
+    servers=[{"url": settings.public_api_url}] if settings.public_api_url else None,
+)
 
 app.add_middleware(
     CORSMiddleware,

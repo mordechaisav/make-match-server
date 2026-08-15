@@ -136,6 +136,43 @@ def test_create_female_candidate_omitting_relatives_and_references_defaults_to_e
     assert body["references"] == []
 
 
+# ---- get single ----
+
+
+def test_get_male_candidate_returns_full_shape(client, shadchan_id):
+    created = client.post(f"/api/v1/shadchanim/{shadchan_id}/male-candidates", json=MALE_BODY).json()
+
+    resp = client.get(f"/api/v1/shadchanim/{shadchan_id}/male-candidates/{created['id']}")
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["id"] == created["id"]
+    assert body["first_name"] == "Aryeh"
+
+
+def test_get_female_candidate_returns_full_shape(client, shadchan_id):
+    created = client.post(f"/api/v1/shadchanim/{shadchan_id}/female-candidates", json=FEMALE_BODY).json()
+
+    resp = client.get(f"/api/v1/shadchanim/{shadchan_id}/female-candidates/{created['id']}")
+
+    assert resp.status_code == 200
+    assert resp.json()["first_name"] == "Miri"
+
+
+def test_get_male_candidate_nonexistent_is_404(client, shadchan_id):
+    resp = client.get(f"/api/v1/shadchanim/{shadchan_id}/male-candidates/999999")
+
+    assert resp.status_code == 404
+
+
+def test_get_male_candidate_unknown_shadchan_is_403(client, shadchan_id):
+    created = client.post(f"/api/v1/shadchanim/{shadchan_id}/male-candidates", json=MALE_BODY).json()
+
+    resp = client.get(f"/api/v1/shadchanim/999999/male-candidates/{created['id']}")
+
+    assert resp.status_code == 403
+
+
 # ---- update ----
 
 
@@ -309,6 +346,19 @@ def test_get_candidates_combined_filters_apply_together(client, shadchan_id):
     body = resp.json()
     assert resp.status_code == 200
     assert [c["first_name"] for c in body["male_candidates"]] == ["Match"]
+
+
+def test_get_candidates_filters_by_name_substring_matches_first_or_last(client, shadchan_id):
+    _create_male(client, shadchan_id, first_name="Aryeh", last_name="Stein")
+    _create_male(client, shadchan_id, first_name="Moshe", last_name="Steinberg")
+    _create_male(client, shadchan_id, first_name="Yankel", last_name="Cohen")
+
+    resp = client.get(f"/api/v1/shadchanim/{shadchan_id}/candidates?name=stein")
+
+    body = resp.json()
+    assert resp.status_code == 200
+    assert {c["first_name"] for c in body["male_candidates"]} == {"Aryeh", "Moshe"}
+    assert body["pagination"]["male_total"] == 2
 
 
 def test_get_candidates_no_filters_returns_everyone(client, shadchan_id):
