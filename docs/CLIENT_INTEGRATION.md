@@ -3,7 +3,7 @@
 This document describes the `shadchan-server` HTTP API in enough detail to
 build a client against it (mobile app, web app, etc.) without reading the
 server source. It covers every endpoint, every request/response shape,
-authentication, and the two multi-step flows (photo upload, PDF-based
+authentication, and the two multi-step flows (photo upload, resume-based
 candidate creation) that aren't obvious from a single endpoint in isolation.
 
 ## 1. What this server is
@@ -251,17 +251,22 @@ Body: { "content_type": "image/jpeg" | "image/png" | "image/webp" }
 200 -> { "upload_url": str, "path": str, "expires_in": 300 }
 ```
 
-### Candidate-from-PDF extraction (draft, non-persisting)
+### Candidate-from-resume extraction (draft, non-persisting)
 See the full flow in §7. Short version:
 ```
 POST /api/v1/shadchanim/{shadchan_id}/male-candidates/extract
 POST /api/v1/shadchanim/{shadchan_id}/female-candidates/extract
-Body: { "rows": { "<label>": "<text>" | ["<text>", ...] } }
-200 -> MaleCandidateDraft / FemaleCandidateDraft (same shape as Create, all fields optional/nullable)
-502 -> extraction failed (LLM call or parsing failed), client should let the user retry
+Body: multipart/form-data, field "file" = the resume file (.pdf or .docx)
+200 -> MaleCandidateDraft / FemaleCandidateDraft (same shape as Create, all fields optional/nullable, plus `notes`)
+400 -> file is empty, unreadable/corrupted, password-protected, or no text could be extracted
+415 -> unsupported file type (only .pdf and .docx are accepted - not legacy .doc)
+502 -> the LLM call itself failed, client should let the user retry
 ```
-This endpoint **does not save anything**. It's purely rows-in, best-guess
-structured-draft-out.
+This endpoint **does not save anything**. It's purely file-in, best-guess
+structured-draft-out. The backend extracts the raw text from the file itself
+(no client-side PDF/DOCX parsing needed) and sends that to the LLM. Any part
+of the text that doesn't map onto a schema field comes back in `notes`
+(verbatim Hebrew) rather than being dropped.
 
 ## 5. Enums (exact wire values)
 
@@ -336,44 +341,56 @@ targeting `PATCH .../male-candidates/{id}` in step 3 with the new
 `picture_url: null` on PATCH is not distinguishable from "don't touch the
 photo" (see §8).
 
-## 7. Candidate-from-PDF flow
+## 7. Candidate-from-resume flow
 
-The **client**, not this backend, is responsible for turning a resume PDF
-into rows — no PDF file is ever uploaded to this server. The flow:
+The client uploads the resume **file itself** (`.pdf` or `.docx`) — this
+backend extracts the text server-side, so the client does zero PDF/DOCX
+parsing or structuring. The flow:
 
-1. Client extracts the PDF into a flat dict of `{ raw_label: text }`
-   (values can be a list of strings if the same label repeats, e.g. multiple
-   siblings each as their own bullet under an "אחים" header). Labels are
-   whatever text the source PDF actually uses — every shadchan's resume
-   template phrases fields differently, so there's no fixed label set the
-   client needs to normalize to.
-
-2. Client posts those raw rows to get an LLM-normalized draft:
+1. Client posts the raw resume file as multipart form data to get an
+   LLM-normalized draft:
    ```
    POST /api/v1/shadchanim/{shadchan_id}/male-candidates/extract
-   Body: { "rows": { "ת. לידה": "24.06.2002", "כתובת": "בני ברק", "אחים": ["דינה, 25, נשואה"] } }
+   Content-Type: multipart/form-data
+   Field "file": <the .pdf or .docx file, unmodified>
    ```
-   Response is a `MaleCandidateDraft` / `FemaleCandidateDraft` — same field
-   set as the Create schema, but **every field is optional/nullable**
-   (including `first_name`/`last_name`/`dob`), because extraction is
-   best-effort: any field not present or unclear in the rows comes back
-   `null`, never fabricated.
+   Only `.pdf` and `.docx` are accepted (routed purely by filename
+   extension, not the `Content-Type` header) — legacy `.doc` is **not**
+   supported; reject it client-side with a clear message rather than
+   uploading it and getting a `415`.
 
-3. **Nothing is persisted by step 2.** The client should show the draft to
+   Response is a `MaleCandidateDraft` / `FemaleCandidateDraft` — same field
+   set as the Create schema plus `notes`, but **every field is
+   optional/nullable** (including `first_name`/`last_name`/`dob`), because
+   extraction is best-effort: any field not present or unclear in the resume
+   comes back `null`, never fabricated. Anything in the resume that doesn't
+   map onto a schema field is preserved verbatim (in Hebrew) in `notes`
+   rather than being dropped.
+
+2. **Nothing is persisted by step 1.** The client should show the draft to
    the shadchan for review/editing (fill in nulls, fix mis-mapped fields),
    then submit the corrected data through the normal
    `POST .../male-candidates` (or `female-candidates`) create endpoint —
    that call is what actually saves it. There is no separate "confirm"
    endpoint; confirmation *is* the ordinary create call.
 
-4. Gender isn't inferred by the server — the client decides whether to hit
+3. Gender isn't inferred by the server — the client decides whether to hit
    the `male-candidates/extract` or `female-candidates/extract` endpoint
    based on which resume it is.
 
-5. `502 Bad Gateway` from either extract endpoint means the LLM call itself
-   failed (upstream/timeout) or its output didn't validate — treat as
-   transient and let the user retry; it does not mean the rows were
-   malformed in a way the client needs to fix.
+4. Error handling:
+   - `415 Unsupported Media Type` — the file extension isn't `.pdf` or
+     `.docx`. Not retryable; the client picked/generated the wrong file.
+   - `400 Bad Request` — the file is empty, corrupted, password-protected,
+     or no extractable text was found. Ask the user for a different file.
+   - `502 Bad Gateway` — the LLM call itself failed (upstream/timeout) or
+     its output didn't validate. Treat as transient and let the user retry
+     with the same file.
+
+   There is currently no server-side file size limit on this endpoint —
+   validate a reasonable cap client-side (same recommendation as photo
+   uploads, §6: nothing stops an oversized upload from being accepted and
+   parsed today).
 
 ## 8. Known gaps / things NOT to design around
 
@@ -404,11 +421,12 @@ except `POST /api/v1/shadchanim`'s `409`, whose `detail` is an object (see
 §4) rather than a string.
 
 Status codes used across the API: `400` (bad request, e.g. missing
-photo object), `401` (missing/invalid auth token), `403` (valid token, but
-not this shadchan's resource), `404` (shadchan/candidate not found), `409`
-(duplicate shadchan registration), `422` (request body failed schema
-validation — wrong enum value, missing required field, out-of-range
-number), `502` (PDF-extraction LLM call failed).
+photo object, or an unreadable/corrupted resume file), `401` (missing/invalid
+auth token), `403` (valid token, but not this shadchan's resource), `404`
+(shadchan/candidate not found), `409` (duplicate shadchan registration),
+`415` (unsupported resume file type on the extract endpoints), `422` (request
+body failed schema validation — wrong enum value, missing required field,
+out-of-range number), `502` (resume-extraction LLM call failed).
 
 ## 10. OpenAPI `servers`
 

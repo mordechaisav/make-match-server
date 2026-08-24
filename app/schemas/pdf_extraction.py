@@ -5,16 +5,6 @@ from pydantic import BaseModel, Field
 from app.models.enums import ReferenceType, RelationType
 
 
-class PdfRowsIn(BaseModel):
-    """Raw label -> text rows the client extracted from a resume PDF.
-
-    List values allow the same label to repeat (e.g. multiple siblings or
-    multiple friends under one bullet header).
-    """
-
-    rows: dict[str, str | list[str]]
-
-
 class RelativeDraft(BaseModel):
     relation: RelationType | None = None
     name: str | None = None
@@ -42,6 +32,7 @@ class MaleCandidateDraft(BaseModel):
     talmud_torah: str | None = None
     yeshiva_ketana: str | None = None
     yeshiva_gedola: str | None = None
+    notes: str | None = None
     relatives: list[RelativeDraft] = Field(default_factory=list)
     references: list[ReferenceDraft] = Field(default_factory=list)
 
@@ -55,5 +46,6 @@ class FemaleCandidateDraft(BaseModel):
     beit_yaakov: str | None = None
     seminar: str | None = None
     maslul: str | None = None
+    notes: str | None = None
     relatives: list[RelativeDraft] = Field(default_factory=list)
     references: list[ReferenceDraft] = Field(default_factory=list)

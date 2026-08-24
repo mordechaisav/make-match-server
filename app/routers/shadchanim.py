@@ -1,6 +1,6 @@
 from typing import Callable
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 from sqlalchemy.orm import Session
 
 from app.core.auth import get_current_shadchan, require_own_shadchan, verify_firebase_token
@@ -17,9 +17,9 @@ from app.schemas.candidate import (
     ShadchanCandidatesRead,
 )
 from app.schemas.image import UploadUrlIn, UploadUrlOut
-from app.schemas.pdf_extraction import FemaleCandidateDraft, MaleCandidateDraft, PdfRowsIn
+from app.schemas.pdf_extraction import FemaleCandidateDraft, MaleCandidateDraft
 from app.schemas.shadchan import ShadchanCreate, ShadchanRead, ShadchanUpdate
-from app.services import candidate_service, image_service, pdf_extraction_service, shadchan_service
+from app.services import candidate_service, document_text_service, image_service, pdf_extraction_service, shadchan_service
 
 router = APIRouter(prefix="/api/v1/shadchanim", tags=["shadchanim"])
 
@@ -146,21 +146,23 @@ def create_female_candidate(
 @router.post("/{shadchan_id}/male-candidates/extract", response_model=MaleCandidateDraft)
 def extract_male_candidate(
     shadchan_id: int,
-    payload: PdfRowsIn,
+    file: UploadFile = File(...),
     _=Depends(require_own_shadchan),
-    extract: Callable[[dict], MaleCandidateDraft] = Depends(pdf_extraction_service.get_male_extractor),
+    extract_text: Callable[[UploadFile], str] = Depends(document_text_service.get_text_extractor),
+    extract: Callable[[str], MaleCandidateDraft] = Depends(pdf_extraction_service.get_male_extractor),
 ) -> MaleCandidateDraft:
-    return extract(payload.rows)
+    return extract(extract_text(file))
 
 
 @router.post("/{shadchan_id}/female-candidates/extract", response_model=FemaleCandidateDraft)
 def extract_female_candidate(
     shadchan_id: int,
-    payload: PdfRowsIn,
+    file: UploadFile = File(...),
     _=Depends(require_own_shadchan),
-    extract: Callable[[dict], FemaleCandidateDraft] = Depends(pdf_extraction_service.get_female_extractor),
+    extract_text: Callable[[UploadFile], str] = Depends(document_text_service.get_text_extractor),
+    extract: Callable[[str], FemaleCandidateDraft] = Depends(pdf_extraction_service.get_female_extractor),
 ) -> FemaleCandidateDraft:
-    return extract(payload.rows)
+    return extract(extract_text(file))
 
 
 @router.patch("/{shadchan_id}/male-candidates/{candidate_id}", response_model=MaleCandidateRead)
