@@ -93,6 +93,28 @@ def create_upload_url(
     return generate(shadchan_id, payload.content_type)
 
 
+@router.delete("/{shadchan_id}/male-candidates/{candidate_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_male_candidate(
+    shadchan_id: int,
+    candidate_id: int,
+    db: Session = Depends(get_db),
+    _=Depends(require_own_shadchan),
+    delete_object_fn: Callable[[str], None] = Depends(image_service.get_object_deleter),
+) -> None:
+    candidate_service.delete_male_candidate(db, shadchan_id, candidate_id, delete_object_fn)
+
+
+@router.delete("/{shadchan_id}/female-candidates/{candidate_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_female_candidate(
+    shadchan_id: int,
+    candidate_id: int,
+    db: Session = Depends(get_db),
+    _=Depends(require_own_shadchan),
+    delete_object_fn: Callable[[str], None] = Depends(image_service.get_object_deleter),
+) -> None:
+    candidate_service.delete_female_candidate(db, shadchan_id, candidate_id, delete_object_fn)
+
+
 @router.post(
     "/{shadchan_id}/male-candidates", response_model=MaleCandidateRead, status_code=status.HTTP_201_CREATED
 )

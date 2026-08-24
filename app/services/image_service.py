@@ -37,6 +37,13 @@ def generate_read_url(key: str) -> str:
     )
 
 
+def delete_object(key: str) -> None:
+    try:
+        get_b2_client().delete_object(Bucket=settings.b2_bucket_name, Key=key)
+    except ClientError:
+        pass  # best-effort - don't fail the request over B2 cleanup
+
+
 def get_upload_url_generator() -> Callable[[int, str], UploadUrlOut]:
     return generate_upload_url
 
@@ -47,3 +54,7 @@ def get_object_checker() -> Callable[[str], bool]:
 
 def get_read_url_generator() -> Callable[[str], str]:
     return generate_read_url
+
+
+def get_object_deleter() -> Callable[[str], None]:
+    return delete_object

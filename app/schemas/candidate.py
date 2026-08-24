@@ -1,8 +1,18 @@
+import enum
 from datetime import date, datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.models.enums import ReferenceType, RelationType
+
+
+class CandidateSort(str, enum.Enum):
+    created_desc = "created_desc"
+    created_asc = "created_asc"
+    age_asc = "age_asc"
+    age_desc = "age_desc"
+    name_asc = "name_asc"
+    name_desc = "name_desc"
 
 
 class CandidateFilters(BaseModel):
@@ -19,6 +29,8 @@ class CandidateFilters(BaseModel):
     height_max: int | None = Field(default=None, ge=0)
     address: str | None = None
     name: str | None = None
+    sort: CandidateSort = CandidateSort.created_desc
+    favourites_only: bool = False
 
 
 class RelativeRead(BaseModel):
@@ -73,6 +85,8 @@ class MaleCandidateCreate(BaseModel):
     talmud_torah: str | None = None
     yeshiva_ketana: str | None = None
     yeshiva_gedola: str | None = None
+    is_favourite: bool = False
+    notes: str | None = None
     relatives: list[RelativeCreate] = Field(default_factory=list)
     references: list[ReferenceCreate] = Field(default_factory=list)
 
@@ -87,6 +101,10 @@ class MaleCandidateUpdate(BaseModel):
     talmud_torah: str | None = None
     yeshiva_ketana: str | None = None
     yeshiva_gedola: str | None = None
+    is_favourite: bool = False
+    notes: str | None = None
+    relatives: list[RelativeCreate] | None = None
+    references: list[ReferenceCreate] | None = None
 
 
 class FemaleCandidateCreate(BaseModel):
@@ -99,6 +117,8 @@ class FemaleCandidateCreate(BaseModel):
     beit_yaakov: str | None = None
     seminar: str | None = None
     maslul: str | None = None
+    is_favourite: bool = False
+    notes: str | None = None
     relatives: list[RelativeCreate] = Field(default_factory=list)
     references: list[ReferenceCreate] = Field(default_factory=list)
 
@@ -113,6 +133,10 @@ class FemaleCandidateUpdate(BaseModel):
     beit_yaakov: str | None = None
     seminar: str | None = None
     maslul: str | None = None
+    is_favourite: bool = False
+    notes: str | None = None
+    relatives: list[RelativeCreate] | None = None
+    references: list[ReferenceCreate] | None = None
 
 
 class MaleCandidateRead(BaseModel):
@@ -131,6 +155,8 @@ class MaleCandidateRead(BaseModel):
     talmud_torah: str | None
     yeshiva_ketana: str | None
     yeshiva_gedola: str | None
+    is_favourite: bool
+    notes: str | None
     relatives: list[RelativeRead]
     references: list[ReferenceRead]
 
@@ -151,6 +177,8 @@ class FemaleCandidateRead(BaseModel):
     beit_yaakov: str | None
     seminar: str | None
     maslul: str | None
+    is_favourite: bool
+    notes: str | None
     relatives: list[RelativeRead]
     references: list[ReferenceRead]
 

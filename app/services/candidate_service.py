@@ -90,6 +90,32 @@ def get_female_candidate(
     return _resolve_picture(FemaleCandidateRead.model_validate(candidate), read_url_fn)
 
 
+def delete_male_candidate(
+    db: Session, shadchan_id: int, candidate_id: int, delete_object_fn: Callable[[str], None]
+) -> None:
+    _get_shadchan_or_404(db, shadchan_id)
+    candidate = candidate_repository.get_male_candidate(db, shadchan_id, candidate_id)
+    if candidate is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Male candidate not found")
+    picture_url = candidate.picture_url
+    candidate_repository.delete_male_candidate(db, candidate)
+    if picture_url:
+        delete_object_fn(picture_url)
+
+
+def delete_female_candidate(
+    db: Session, shadchan_id: int, candidate_id: int, delete_object_fn: Callable[[str], None]
+) -> None:
+    _get_shadchan_or_404(db, shadchan_id)
+    candidate = candidate_repository.get_female_candidate(db, shadchan_id, candidate_id)
+    if candidate is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Female candidate not found")
+    picture_url = candidate.picture_url
+    candidate_repository.delete_female_candidate(db, candidate)
+    if picture_url:
+        delete_object_fn(picture_url)
+
+
 def create_male_candidate(
     db: Session,
     shadchan_id: int,

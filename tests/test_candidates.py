@@ -210,6 +210,141 @@ def test_update_female_candidate_changes_only_sent_fields(client, shadchan_id):
     assert body["beit_yaakov"] is None
 
 
+def test_update_male_candidate_clears_field_with_explicit_null(client, shadchan_id):
+    created = client.post(f"/api/v1/shadchanim/{shadchan_id}/male-candidates", json=MALE_BODY).json()
+
+    resp = client.patch(
+        f"/api/v1/shadchanim/{shadchan_id}/male-candidates/{created['id']}",
+        json={"height": None, "picture_url": None},
+    )
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["height"] is None
+    assert body["picture_url"] is None
+    # untouched
+    assert body["address"] == "Lakewood"
+
+
+def test_update_male_candidate_omitting_relatives_leaves_them_untouched(client, shadchan_id):
+    body = {**MALE_BODY, "relatives": [{"relation": "father", "name": "Yitzchak"}]}
+    created = client.post(f"/api/v1/shadchanim/{shadchan_id}/male-candidates", json=body).json()
+
+    resp = client.patch(
+        f"/api/v1/shadchanim/{shadchan_id}/male-candidates/{created['id']}",
+        json={"height": 180},
+    )
+
+    assert resp.status_code == 200
+    assert len(resp.json()["relatives"]) == 1
+    assert resp.json()["relatives"][0]["name"] == "Yitzchak"
+
+
+def test_update_male_candidate_empty_relatives_list_clears_them(client, shadchan_id):
+    body = {**MALE_BODY, "relatives": [{"relation": "father", "name": "Yitzchak"}]}
+    created = client.post(f"/api/v1/shadchanim/{shadchan_id}/male-candidates", json=body).json()
+
+    resp = client.patch(
+        f"/api/v1/shadchanim/{shadchan_id}/male-candidates/{created['id']}",
+        json={"relatives": []},
+    )
+
+    assert resp.status_code == 200
+    assert resp.json()["relatives"] == []
+
+
+def test_update_male_candidate_replaces_relatives_and_references(client, shadchan_id):
+    body = {
+        **MALE_BODY,
+        "relatives": [{"relation": "father", "name": "Yitzchak"}],
+        "references": [{"ref_type": "friend", "name": "Moshe Cohen"}],
+    }
+    created = client.post(f"/api/v1/shadchanim/{shadchan_id}/male-candidates", json=body).json()
+
+    resp = client.patch(
+        f"/api/v1/shadchanim/{shadchan_id}/male-candidates/{created['id']}",
+        json={
+            "relatives": [{"relation": "mother", "name": "Rivka", "maiden_name": "Mandinger"}],
+            "references": [{"ref_type": "rabbi_teacher", "name": "R. Halman"}],
+        },
+    )
+
+    assert resp.status_code == 200
+    updated = resp.json()
+    assert len(updated["relatives"]) == 1
+    assert updated["relatives"][0]["relation"] == "mother"
+    assert updated["relatives"][0]["maiden_name"] == "Mandinger"
+    assert len(updated["references"]) == 1
+    assert updated["references"][0]["name"] == "R. Halman"
+
+    # replacement persisted, not just echoed back
+    refetched = client.get(f"/api/v1/shadchanim/{shadchan_id}/male-candidates/{created['id']}").json()
+    assert len(refetched["relatives"]) == 1
+    assert refetched["relatives"][0]["name"] == "Rivka"
+
+
+def test_update_female_candidate_replaces_relatives(client, shadchan_id):
+    body = {**FEMALE_BODY, "relatives": [{"relation": "sibling", "name": "Dina"}]}
+    created = client.post(f"/api/v1/shadchanim/{shadchan_id}/female-candidates", json=body).json()
+
+    resp = client.patch(
+        f"/api/v1/shadchanim/{shadchan_id}/female-candidates/{created['id']}",
+        json={"relatives": [{"relation": "mother", "name": "Sarah"}]},
+    )
+
+    assert resp.status_code == 200
+    assert [r["name"] for r in resp.json()["relatives"]] == ["Sarah"]
+
+
+# ---- favourites & notes ----
+
+
+def test_create_male_candidate_favourite_and_notes_round_trip(client, shadchan_id):
+    resp = client.post(
+        f"/api/v1/shadchanim/{shadchan_id}/male-candidates",
+        json={**MALE_BODY, "is_favourite": True, "notes": "met at a vort"},
+    )
+
+    assert resp.status_code == 201
+    body = resp.json()
+    assert body["is_favourite"] is True
+    assert body["notes"] == "met at a vort"
+
+
+def test_create_male_candidate_defaults_is_favourite_false(client, shadchan_id):
+    resp = client.post(f"/api/v1/shadchanim/{shadchan_id}/male-candidates", json=MALE_BODY)
+
+    assert resp.status_code == 201
+    body = resp.json()
+    assert body["is_favourite"] is False
+    assert body["notes"] is None
+
+
+def test_update_male_candidate_sets_favourite_and_notes(client, shadchan_id):
+    created = client.post(f"/api/v1/shadchanim/{shadchan_id}/male-candidates", json=MALE_BODY).json()
+
+    resp = client.patch(
+        f"/api/v1/shadchanim/{shadchan_id}/male-candidates/{created['id']}",
+        json={"is_favourite": True, "notes": "follow up next week"},
+    )
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["is_favourite"] is True
+    assert body["notes"] == "follow up next week"
+
+
+def test_get_candidates_favourites_only_filters(client, shadchan_id):
+    _create_male(client, shadchan_id, first_name="Fav", is_favourite=True)
+    _create_male(client, shadchan_id, first_name="NotFav", is_favourite=False)
+
+    resp = client.get(f"/api/v1/shadchanim/{shadchan_id}/candidates?favourites_only=true")
+
+    assert resp.status_code == 200
+    names = [c["first_name"] for c in resp.json()["male_candidates"]]
+    assert names == ["Fav"]
+
+
 def test_update_candidate_unknown_shadchan_is_403(client, shadchan_id):
     created = client.post(f"/api/v1/shadchanim/{shadchan_id}/male-candidates", json=MALE_BODY).json()
 

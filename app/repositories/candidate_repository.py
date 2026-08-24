@@ -8,6 +8,7 @@ from app.models.reference import CandidateReference
 from app.models.relative import Relative
 from app.schemas.candidate import (
     CandidateFilters,
+    CandidateSort,
     FemaleCandidateCreate,
     FemaleCandidateUpdate,
     MaleCandidateCreate,
@@ -48,7 +49,24 @@ def _apply_candidate_filters(stmt, model, filters: CandidateFilters | None):
         stmt = stmt.where(
             or_(model.first_name.ilike(pattern, escape="\\"), model.last_name.ilike(pattern, escape="\\"))
         )
+    if filters.favourites_only:
+        stmt = stmt.where(model.is_favourite.is_(True))
     return stmt
+
+
+def _apply_sort(stmt, model, sort: CandidateSort):
+    # id is a monotonically increasing tiebreaker for equal-timestamp rows (e.g. two
+    # candidates created in the same second); its direction is matched to the primary
+    # sort's so ties still resolve in a sensible (not reversed) order.
+    order = {
+        CandidateSort.created_desc: (model.created_at.desc(), model.id.desc()),
+        CandidateSort.created_asc: (model.created_at.asc(), model.id.asc()),
+        CandidateSort.age_asc: (model.dob.desc(), model.id.asc()),  # youngest first = latest dob
+        CandidateSort.age_desc: (model.dob.asc(), model.id.asc()),  # oldest first = earliest dob
+        CandidateSort.name_asc: (model.last_name.asc(), model.first_name.asc(), model.id.asc()),
+        CandidateSort.name_desc: (model.last_name.desc(), model.first_name.desc(), model.id.asc()),
+    }[sort]
+    return stmt.order_by(*order)
 
 
 def _male_candidate_stmt():
@@ -70,7 +88,8 @@ def get_male_candidates(
 ) -> list[MaleCandidate]:
     stmt = _male_candidate_stmt().where(MaleCandidate.shadchan_id == shadchan_id)
     stmt = _apply_candidate_filters(stmt, MaleCandidate, filters)
-    stmt = stmt.order_by(MaleCandidate.id).limit(limit).offset(offset)
+    sort = filters.sort if filters else CandidateSort.created_desc
+    stmt = _apply_sort(stmt, MaleCandidate, sort).limit(limit).offset(offset)
     return list(db.execute(stmt).unique().scalars().all())
 
 
@@ -79,7 +98,8 @@ def get_female_candidates(
 ) -> list[FemaleCandidate]:
     stmt = _female_candidate_stmt().where(FemaleCandidate.shadchan_id == shadchan_id)
     stmt = _apply_candidate_filters(stmt, FemaleCandidate, filters)
-    stmt = stmt.order_by(FemaleCandidate.id).limit(limit).offset(offset)
+    sort = filters.sort if filters else CandidateSort.created_desc
+    stmt = _apply_sort(stmt, FemaleCandidate, sort).limit(limit).offset(offset)
     return list(db.execute(stmt).unique().scalars().all())
 
 
@@ -118,17 +138,37 @@ def create_female_candidate(db: Session, shadchan_id: int, data: FemaleCandidate
 
 
 def update_male_candidate(db: Session, candidate: MaleCandidate, data: MaleCandidateUpdate) -> MaleCandidate:
-    for field, value in data.model_dump(exclude_unset=True).items():
+    updates = data.model_dump(exclude_unset=True, exclude={"relatives", "references"})
+    for field, value in updates.items():
         setattr(candidate, field, value)
+    if data.relatives is not None:
+        candidate.relatives = [Relative(**r.model_dump()) for r in data.relatives]
+    if data.references is not None:
+        candidate.references = [CandidateReference(**r.model_dump()) for r in data.references]
     db.commit()
     return get_male_candidate(db, candidate.shadchan_id, candidate.id)
 
 
 def update_female_candidate(db: Session, candidate: FemaleCandidate, data: FemaleCandidateUpdate) -> FemaleCandidate:
-    for field, value in data.model_dump(exclude_unset=True).items():
+    updates = data.model_dump(exclude_unset=True, exclude={"relatives", "references"})
+    for field, value in updates.items():
         setattr(candidate, field, value)
+    if data.relatives is not None:
+        candidate.relatives = [Relative(**r.model_dump()) for r in data.relatives]
+    if data.references is not None:
+        candidate.references = [CandidateReference(**r.model_dump()) for r in data.references]
     db.commit()
     return get_female_candidate(db, candidate.shadchan_id, candidate.id)
+
+
+def delete_male_candidate(db: Session, candidate: MaleCandidate) -> None:
+    db.delete(candidate)
+    db.commit()
+
+
+def delete_female_candidate(db: Session, candidate: FemaleCandidate) -> None:
+    db.delete(candidate)
+    db.commit()
 
 
 def count_male_candidates(db: Session, shadchan_id: int, filters: CandidateFilters | None = None) -> int:

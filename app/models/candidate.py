@@ -1,6 +1,7 @@
 from datetime import date
 
-from sqlalchemy import Date, ForeignKey, Integer, String
+import sqlalchemy as sa
+from sqlalchemy import Boolean, Date, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -22,6 +23,11 @@ class MaleCandidate(Base, TimestampMixin):
     talmud_torah: Mapped[str | None] = mapped_column(String(200), nullable=True)
     yeshiva_ketana: Mapped[str | None] = mapped_column(String(200), nullable=True)
     yeshiva_gedola: Mapped[str | None] = mapped_column(String(200), nullable=True)
+
+    is_favourite: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=sa.text("false")
+    )
+    notes: Mapped[str | None] = mapped_column(String(2000), nullable=True)
 
     shadchan: Mapped["Shadchan"] = relationship(back_populates="male_candidates")
     relatives: Mapped[list["Relative"]] = relationship(
@@ -47,6 +53,11 @@ class FemaleCandidate(Base, TimestampMixin):
     beit_yaakov: Mapped[str | None] = mapped_column(String(200), nullable=True)
     seminar: Mapped[str | None] = mapped_column(String(200), nullable=True)
     maslul: Mapped[str | None] = mapped_column(String(200), nullable=True)
+
+    is_favourite: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=sa.text("false")
+    )
+    notes: Mapped[str | None] = mapped_column(String(2000), nullable=True)
 
     shadchan: Mapped["Shadchan"] = relationship(back_populates="female_candidates")
     relatives: Mapped[list["Relative"]] = relationship(

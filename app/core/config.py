@@ -18,7 +18,7 @@ class Settings(BaseSettings):
     b2_read_url_expires_in: int = 3600
 
     # comma-separated list of allowed browser origins for CORS (local client dev servers, etc.)
-    cors_origins: str = "http://localhost:5500,http://127.0.0.1:5500"
+    cors_origins: str = "http://localhost:5173,https://make-match-client.onrender.com"
 
     # public base URL of this deployment, used for the OpenAPI "servers" block so
     # generated clients don't default to localhost. Leave unset for local dev.
