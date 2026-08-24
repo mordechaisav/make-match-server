@@ -3,13 +3,39 @@ from pathlib import Path
 from typing import Callable
 
 import docx
+import pymupdf
+import pytesseract
 from fastapi import HTTPException, UploadFile, status
+from PIL import Image
 from pypdf import PdfReader
+
+# Hebrew resumes are often plain photos/scans with no embedded text layer.
+# OCR is done locally with Tesseract (deterministic, no rate limits, no
+# hallucination risk) rather than an LLM vision model - the recognized text
+# is then fed through the existing Groq-based field-extraction pipeline like
+# any other text. Deployment must have the `tesseract-ocr` binary plus the
+# Hebrew language data (`tesseract-ocr-heb` on Debian/Ubuntu) installed.
+_OCR_LANGUAGES = "heb+eng"
+_OCR_RENDER_DPI = 300
+
+
+def _ocr_pdf(data: bytes) -> str:
+    parts = []
+    with pymupdf.open(stream=data, filetype="pdf") as document:
+        for page in document:
+            png_bytes = page.get_pixmap(dpi=_OCR_RENDER_DPI).tobytes("png")
+            image = Image.open(io.BytesIO(png_bytes))
+            parts.append(pytesseract.image_to_string(image, lang=_OCR_LANGUAGES))
+    return "\n".join(parts)
 
 
 def _extract_pdf_text(data: bytes) -> str:
     reader = PdfReader(io.BytesIO(data))
-    return "\n".join(page.extract_text() or "" for page in reader.pages)
+    text = "\n".join(page.extract_text() or "" for page in reader.pages)
+    if text.strip():
+        return text
+    # no embedded text layer - it's a scanned/photographed resume, OCR it
+    return _ocr_pdf(data)
 
 
 def _extract_docx_text(data: bytes) -> str:

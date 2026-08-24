@@ -43,8 +43,8 @@ def test_delete_male_candidate_cascades_relatives_and_references(client, shadcha
     try:
         body = {
             **MALE_BODY,
-            "relatives": [{"relation": "father", "name": "Yitzchak"}],
-            "references": [{"ref_type": "friend", "name": "Moshe Cohen"}],
+            "relatives": [{"relation": "אבא", "name": "Yitzchak"}],
+            "references": [{"ref_type": "חבר", "name": "Moshe Cohen"}],
         }
         created = client.post(f"/api/v1/shadchanim/{shadchan_id}/male-candidates", json=body).json()
 

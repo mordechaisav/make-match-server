@@ -101,13 +101,13 @@ def test_create_male_candidate_with_relatives_and_references(client, shadchan_id
     body = {
         **MALE_BODY,
         "relatives": [
-            {"relation": "father", "name": "Yitzchak", "occupation": "Avreich"},
-            {"relation": "mother", "name": "Rivka", "maiden_name": "Mandinger", "occupation": "Teacher"},
-            {"relation": "sibling", "name": "Dina", "dob": "2001-01-01", "marital_status": "married"},
+            {"relation": "אבא", "name": "Yitzchak", "occupation": "Avreich"},
+            {"relation": "אמא", "name": "Rivka", "maiden_name": "Mandinger", "occupation": "Teacher"},
+            {"relation": "אח או אחות", "name": "Dina", "dob": "2001-01-01", "marital_status": "married"},
         ],
         "references": [
-            {"ref_type": "rabbi_teacher", "name": "R. Halman", "role_connection": "Rav biyeshiva", "phone": "0555555555"},
-            {"ref_type": "friend", "name": "Moshe Cohen", "phone": "0555552555"},
+            {"ref_type": "רב/מלמד", "name": "R. Halman", "role_connection": "Rav biyeshiva", "phone": "0555555555"},
+            {"ref_type": "חבר", "name": "Moshe Cohen", "phone": "0555552555"},
         ],
     }
 
@@ -116,11 +116,11 @@ def test_create_male_candidate_with_relatives_and_references(client, shadchan_id
     assert resp.status_code == 201
     created = resp.json()
     assert len(created["relatives"]) == 3
-    assert {r["relation"] for r in created["relatives"]} == {"father", "mother", "sibling"}
-    mother = next(r for r in created["relatives"] if r["relation"] == "mother")
+    assert {r["relation"] for r in created["relatives"]} == {"אבא", "אמא", "אח או אחות"}
+    mother = next(r for r in created["relatives"] if r["relation"] == "אמא")
     assert mother["maiden_name"] == "Mandinger"
     assert len(created["references"]) == 2
-    assert {r["ref_type"] for r in created["references"]} == {"rabbi_teacher", "friend"}
+    assert {r["ref_type"] for r in created["references"]} == {"רב/מלמד", "חבר"}
 
     # persisted, not just echoed back - refetch via the list endpoint
     listed = client.get(f"/api/v1/shadchanim/{shadchan_id}/candidates").json()
@@ -227,7 +227,7 @@ def test_update_male_candidate_clears_field_with_explicit_null(client, shadchan_
 
 
 def test_update_male_candidate_omitting_relatives_leaves_them_untouched(client, shadchan_id):
-    body = {**MALE_BODY, "relatives": [{"relation": "father", "name": "Yitzchak"}]}
+    body = {**MALE_BODY, "relatives": [{"relation": "אבא", "name": "Yitzchak"}]}
     created = client.post(f"/api/v1/shadchanim/{shadchan_id}/male-candidates", json=body).json()
 
     resp = client.patch(
@@ -241,7 +241,7 @@ def test_update_male_candidate_omitting_relatives_leaves_them_untouched(client, 
 
 
 def test_update_male_candidate_empty_relatives_list_clears_them(client, shadchan_id):
-    body = {**MALE_BODY, "relatives": [{"relation": "father", "name": "Yitzchak"}]}
+    body = {**MALE_BODY, "relatives": [{"relation": "אבא", "name": "Yitzchak"}]}
     created = client.post(f"/api/v1/shadchanim/{shadchan_id}/male-candidates", json=body).json()
 
     resp = client.patch(
@@ -256,23 +256,23 @@ def test_update_male_candidate_empty_relatives_list_clears_them(client, shadchan
 def test_update_male_candidate_replaces_relatives_and_references(client, shadchan_id):
     body = {
         **MALE_BODY,
-        "relatives": [{"relation": "father", "name": "Yitzchak"}],
-        "references": [{"ref_type": "friend", "name": "Moshe Cohen"}],
+        "relatives": [{"relation": "אבא", "name": "Yitzchak"}],
+        "references": [{"ref_type": "חבר", "name": "Moshe Cohen"}],
     }
     created = client.post(f"/api/v1/shadchanim/{shadchan_id}/male-candidates", json=body).json()
 
     resp = client.patch(
         f"/api/v1/shadchanim/{shadchan_id}/male-candidates/{created['id']}",
         json={
-            "relatives": [{"relation": "mother", "name": "Rivka", "maiden_name": "Mandinger"}],
-            "references": [{"ref_type": "rabbi_teacher", "name": "R. Halman"}],
+            "relatives": [{"relation": "אמא", "name": "Rivka", "maiden_name": "Mandinger"}],
+            "references": [{"ref_type": "רב/מלמד", "name": "R. Halman"}],
         },
     )
 
     assert resp.status_code == 200
     updated = resp.json()
     assert len(updated["relatives"]) == 1
-    assert updated["relatives"][0]["relation"] == "mother"
+    assert updated["relatives"][0]["relation"] == "אמא"
     assert updated["relatives"][0]["maiden_name"] == "Mandinger"
     assert len(updated["references"]) == 1
     assert updated["references"][0]["name"] == "R. Halman"
@@ -284,12 +284,12 @@ def test_update_male_candidate_replaces_relatives_and_references(client, shadcha
 
 
 def test_update_female_candidate_replaces_relatives(client, shadchan_id):
-    body = {**FEMALE_BODY, "relatives": [{"relation": "sibling", "name": "Dina"}]}
+    body = {**FEMALE_BODY, "relatives": [{"relation": "אח או אחות", "name": "Dina"}]}
     created = client.post(f"/api/v1/shadchanim/{shadchan_id}/female-candidates", json=body).json()
 
     resp = client.patch(
         f"/api/v1/shadchanim/{shadchan_id}/female-candidates/{created['id']}",
-        json={"relatives": [{"relation": "mother", "name": "Sarah"}]},
+        json={"relatives": [{"relation": "אמא", "name": "Sarah"}]},
     )
 
     assert resp.status_code == 200

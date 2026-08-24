@@ -2,12 +2,12 @@ import enum
 
 
 class ReferenceType(str, enum.Enum):
-    RABBI_TEACHER = "rabbi_teacher"
-    FRIEND = "friend"
-    FAMILY = "family"
+    RABBI_TEACHER = "רב/מלמד"
+    FRIEND = "חבר"
+    FAMILY = "משפחה"
 
 
 class RelationType(str, enum.Enum):
-    FATHER = "father"
-    MOTHER = "mother"
-    SIBLING = "sibling"
+    FATHER = "אבא"
+    MOTHER = "אמא"
+    SIBLING = "אח או אחות"

@@ -60,11 +60,11 @@ Authorization: Bearer <firebase-id-token>
 
 ### Relative
 Attached to a candidate (male or female). One of `relation` enum values:
-`father`, `mother`, `sibling`.
+`אבא`, `אמא`, `אח או אחות`.
 ```jsonc
 {
   "id": 5,
-  "relation": "father",
+  "relation": "אבא",
   "name": "Yitzchak Cohen",
   "maiden_name": null,
   "occupation": "Accountant",
@@ -76,11 +76,11 @@ Attached to a candidate (male or female). One of `relation` enum values:
 On create, `relation` and `name` are required; everything else optional.
 
 ### Reference
-`ref_type` enum: `rabbi_teacher`, `friend`, `family`.
+`ref_type` enum: `רב/מלמד`, `חבר`, `משפחה`.
 ```jsonc
 {
   "id": 9,
-  "ref_type": "rabbi_teacher",
+  "ref_type": "רב/מלמד",
   "name": "Rav Levi",
   "role_connection": "Rebbe at yeshiva",
   "phone": "050-999-8888",
@@ -216,8 +216,8 @@ Body: MaleCandidateCreate / FemaleCandidateCreate
   "talmud_torah": null,
   "yeshiva_ketana": null,
   "yeshiva_gedola": null,
-  "relatives": [ { "relation": "father", "name": "Yitzchak" } ],   // optional, default []
-  "references": [ { "ref_type": "rabbi_teacher", "name": "Rav Levi" } ]  // optional, default []
+  "relatives": [ { "relation": "אבא", "name": "Yitzchak" } ],   // optional, default []
+  "references": [ { "ref_type": "רב/מלמד", "name": "Rav Levi" } ]  // optional, default []
 }
 ```
 `FemaleCandidateCreate` is identical except `talmud_torah` /
@@ -271,12 +271,14 @@ of the text that doesn't map onto a schema field comes back in `notes`
 ## 5. Enums (exact wire values)
 
 ```
-RelationType:   "father" | "mother" | "sibling"
-ReferenceType:  "rabbi_teacher" | "friend" | "family"
+RelationType:   "אבא" | "אמא" | "אח או אחות"
+ReferenceType:  "רב/מלמד" | "חבר" | "משפחה"
 ```
 These are the only valid values for `relatives[].relation` and
 `references[].ref_type` on create; anything else → `422 Unprocessable
-Entity`.
+Entity`. Wire values are Hebrew on purpose (matching how this data is used
+day-to-day) — the underlying stored representation is unaffected by this,
+these are just the JSON strings the client sends/receives.
 
 ## 6. Photo upload flow (Backblaze B2, presigned URLs)
 

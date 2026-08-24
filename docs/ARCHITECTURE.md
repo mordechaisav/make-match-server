@@ -116,7 +116,7 @@ erDiagram
         int id PK
         int male_candidate_id FK "nullable, dual-FK"
         int female_candidate_id FK "nullable, dual-FK"
-        enum relation "father | mother | sibling"
+        enum relation "אבא | אמא | אח או אחות (wire values, DB stores FATHER|MOTHER|SIBLING)"
         string name
         string maiden_name "mother only"
         string occupation "father/mother only"
@@ -130,7 +130,7 @@ erDiagram
         int id PK
         int male_candidate_id FK "nullable, dual-FK"
         int female_candidate_id FK "nullable, dual-FK"
-        enum ref_type "rabbi_teacher | friend | family"
+        enum ref_type "רב/מלמד | חבר | משפחה (wire values, DB stores RABBI_TEACHER|FRIEND|FAMILY)"
         string name
         string role_connection
         string phone
@@ -237,11 +237,11 @@ Query params: `limit` (int, default 50, max 200), `offset` (int, default 0).
       "created_at": "...", "updated_at": "...",
       "talmud_torah": "...", "yeshiva_ketana": "...", "yeshiva_gedola": "...",
       "relatives": [
-        { "relation": "father", "name": "...", "occupation": "..." },
-        { "relation": "mother", "name": "...", "maiden_name": "..." },
-        { "relation": "sibling", "name": "...", "marital_status": "..." }
+        { "relation": "אבא", "name": "...", "occupation": "..." },
+        { "relation": "אמא", "name": "...", "maiden_name": "..." },
+        { "relation": "אח או אחות", "name": "...", "marital_status": "..." }
       ],
-      "references": [ { "ref_type": "rabbi_teacher", "name": "..." } ]
+      "references": [ { "ref_type": "רב/מלמד", "name": "..." } ]
     }
   ],
   "female_candidates": [ "..." ],
@@ -282,6 +282,36 @@ Migrations: `alembic upgrade head` (applies `alembic/versions/`). To generate
 a new migration after changing models: `alembic revision --autogenerate -m "..."`,
 then review the generated file before applying — autogenerate doesn't catch
 everything (e.g. some column renames show up as drop+add).
+
+## 7a. Resume extraction — text extraction + OCR (`app/services/document_text_service.py`)
+
+`POST /{shadchan_id}/{male,female}-candidates/extract` takes the resume
+file itself (`.pdf` or `.docx`, multipart upload) and returns an LLM-mapped
+draft. Text extraction is layered:
+
+1. `.docx` → `python-docx` (paragraphs + table cells).
+2. `.pdf` → `pypdf` reads the embedded text layer first.
+3. If a PDF has **no** text layer (a scan or a photo of a paper resume, not
+   an export from a word processor) → falls back to OCR: `pymupdf` rasterizes
+   each page to a PNG, then `pytesseract` (Tesseract OCR, language
+   `heb+eng`) reads it. The recognized text is then fed through the exact
+   same Groq-based field-mapping step as any other extracted text.
+
+   A vision LLM (Groq's only vision-capable model, `qwen/qwen3.6-27b`) was
+   tried first for this step and rejected: it's a reasoning model that
+   writes a `<think>` block before answering, and this account's Groq tier
+   caps requests at 8000 tokens total — too tight for it to reliably finish
+   thinking on a full resume image. Even when it did finish (tested with a
+   larger budget), it produced real transcription errors (wrong names,
+   dropped phone digits). Tesseract has no such rate limit, is deterministic,
+   and was materially more accurate in testing.
+
+**Deployment requirement:** the `tesseract` binary plus the Hebrew language
+data must be installed on whatever host runs this server — on
+Debian/Ubuntu, `apt-get install tesseract-ocr tesseract-ocr-heb` (this repo
+has no Dockerfile/build-command config checked in, so this needs to be
+added wherever the deployment's build step is configured, e.g. Render's
+dashboard build command).
 
 ## 8. Auth — Firebase ID tokens
 

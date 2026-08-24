@@ -1,12 +1,18 @@
 import io
+import shutil
 
 import docx
+import pymupdf
+import pytest
+from PIL import Image, ImageDraw
 from pypdf import PdfWriter
 from pypdf.generic import DecodedStreamObject, DictionaryObject, NameObject
 
 from app.main import app
 from app.schemas.pdf_extraction import FemaleCandidateDraft, MaleCandidateDraft, RelativeDraft
 from app.services import document_text_service, pdf_extraction_service
+
+_TESSERACT_AVAILABLE = shutil.which("tesseract") is not None
 
 
 def _build_pdf_bytes(text: str) -> bytes:
@@ -48,6 +54,24 @@ def _build_docx_bytes(paragraphs: list[str]) -> bytes:
     return buf.getvalue()
 
 
+def _build_scanned_pdf_bytes(caption: str) -> bytes:
+    """An image-only PDF page (no text layer at all) - simulates a resume
+    that was scanned/photographed rather than exported from a word processor,
+    to exercise the OCR fallback path.
+    """
+    image = Image.new("RGB", (400, 100), "white")
+    ImageDraw.Draw(image).text((10, 30), caption, fill="black")
+    buf = io.BytesIO()
+    image.save(buf, format="PNG")
+
+    document = pymupdf.open()
+    page = document.new_page(width=400, height=100)
+    page.insert_image(page.rect, stream=buf.getvalue())
+    pdf_bytes = document.write()
+    document.close()
+    return pdf_bytes
+
+
 RAW_TEXT = """\
 ת. לידה: 24.06.2002
 כתובת: יונתן בני ברק
@@ -84,7 +108,7 @@ def test_extract_male_candidate_returns_the_extractor_draft(client, shadchan_id)
         last_name=None,
         dob="2002-06-24",
         address="Yonatan, Bnei Brak",
-        relatives=[RelativeDraft(relation="father", name="Yitzchak")],
+        relatives=[RelativeDraft(relation="אבא", name="Yitzchak")],
     )
     _override_text_extractor(RAW_TEXT)
     _override_male_extractor(draft)
@@ -100,7 +124,7 @@ def test_extract_male_candidate_returns_the_extractor_draft(client, shadchan_id)
     assert body["last_name"] is None
     assert body["relatives"] == [
         {
-            "relation": "father",
+            "relation": "אבא",
             "name": "Yitzchak",
             "maiden_name": None,
             "occupation": None,
@@ -223,6 +247,28 @@ def test_extract_docx_parses_real_docx_text(client, shadchan_id):
     assert resp.status_code == 200
     assert "ת. לידה: 24.06.2002" in captured["text"]
     assert "כתובת: בני ברק" in captured["text"]
+
+
+@pytest.mark.skipif(not _TESSERACT_AVAILABLE, reason="tesseract binary not installed")
+def test_extract_scanned_pdf_falls_back_to_ocr(client, shadchan_id):
+    pdf_bytes = _build_scanned_pdf_bytes("Hello World")
+    _override_male_extractor(MaleCandidateDraft(first_name="Moti"))
+    captured = {}
+    original = document_text_service.extract_text_from_upload
+
+    def spy(file):
+        captured["text"] = original(file)
+        return captured["text"]
+
+    app.dependency_overrides[document_text_service.get_text_extractor] = lambda: spy
+    try:
+        resp = _post_file(client, shadchan_id, "male", "scan.pdf", pdf_bytes, "application/pdf")
+    finally:
+        app.dependency_overrides.pop(document_text_service.get_text_extractor, None)
+        app.dependency_overrides.pop(pdf_extraction_service.get_male_extractor, None)
+
+    assert resp.status_code == 200
+    assert "Hello World" in captured["text"]
 
 
 def test_extract_unsupported_file_type_is_415(client, shadchan_id):

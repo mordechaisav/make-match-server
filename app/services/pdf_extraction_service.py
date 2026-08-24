@@ -28,9 +28,9 @@ Hebrew as it appears in the source text - do not translate, transliterate,
 or paraphrase into English or any other language.
 
 Guidance for reference roles (references[].ref_type):
-- "רב בישיבה" / "רב" / "מלמד" / "חברותא" (a rabbi or teacher) -> rabbi_teacher
-- "חבר" (a friend) -> friend
-- "שכן" or other family-adjacent acquaintances -> family
+- "רב בישיבה" / "רב" / "מלמד" / "חברותא" (a rabbi or teacher) -> "רב/מלמד"
+- "חבר" (a friend) -> "חבר"
+- "שכן" or other family-adjacent acquaintances -> "משפחה"
 
 Each bullet point or line under a relatives/references section header is a
 separate entry - do not merge multiple people into one entry.
